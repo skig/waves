@@ -41,3 +41,37 @@ class TestParseCSSteps:
         assert result == []
         assert "Incomplete step data" in caplog.text
 
+    def test_mode0_basic(self):
+        """Test parsing Mode 0 step without frequency offset."""
+        # mode=0, channel=5, data_len=3, quality=0, rssi=-50 (0xCE), antenna=1
+        result = cs_step_parser.parse_cs_steps("00050300ce01")
+        assert len(result) == 1
+        step = result[0]
+        assert step.mode == 0
+        assert step.channel == 5
+        assert step.packet_quality == 0
+        assert step.packet_rssi == -50
+        assert step.packet_antenna == 1
+        assert step.measured_freq_offset is None
+
+    def test_mode0_with_freq_offset(self):
+        """Test parsing Mode 0 step with frequency offset."""
+        # mode=0, channel=10, data_len=5, quality=0, rssi=-60 (0xC4), antenna=2, freq_offset=100 (0x6400 little-endian)
+        result = cs_step_parser.parse_cs_steps("000a0500c4026400")
+        assert len(result) == 1
+        step = result[0]
+        assert step.mode == 0
+        assert step.channel == 10
+        assert step.packet_quality == 0
+        assert step.packet_rssi == -60
+        assert step.packet_antenna == 2
+        assert step.measured_freq_offset == 100.0
+
+    def test_mode0_rssi_not_available(self):
+        """Test parsing Mode 0 step with RSSI not available."""
+        # mode=0, channel=8, data_len=3, quality=0, rssi=0x7F (not available), antenna=0
+        result = cs_step_parser.parse_cs_steps("000803007f00")
+        assert len(result) == 1
+        step = result[0]
+        assert step.packet_rssi is None
+

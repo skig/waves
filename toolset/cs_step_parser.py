@@ -93,7 +93,28 @@ def parse_mode0(data: bytes, channel: int) -> cs_step.CSStepMode0:
     Returns:
         Parsed CSStepMode0 object
     """
-    pass
+    if len(data) not in (3, 5):
+        logger.error(f"Invalid Mode 0 data length: {len(data)}, expected 3 or 5")
+        return None
+
+    packet_quality = cs_step.PacketQuality(data[0])
+    packet_rssi = None if data[1] == cs_step.RSSI_NOT_AVAILABLE else int.from_bytes(data[1:2], byteorder='big', signed=True)
+    packet_antenna = data[2]
+
+    measured_freq_offset = None
+    if len(data) == 5:
+        # Parse 2-byte 15-bit signed integer in units of 0.01 ppm
+        offset_raw = int.from_bytes(data[3:5], byteorder='little', signed=True)
+        measured_freq_offset = float(offset_raw)
+
+    return cs_step.CSStepMode0(
+        mode=cs_step.CSMode.MODE_0,
+        channel=channel,
+        packet_quality=packet_quality,
+        packet_rssi=packet_rssi,
+        packet_antenna=packet_antenna,
+        measured_freq_offset=measured_freq_offset
+    )
 
 
 def parse_mode1(data: bytes, channel: int) -> cs_step.CSStepMode1:

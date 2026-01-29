@@ -2,12 +2,15 @@ from enum import Enum, IntEnum
 from dataclasses import dataclass
 from typing import Optional
 
+# Special value of Packet_RSSI field
+RSSI_NOT_AVAILABLE = 0x7F
+
+
 class CSMode(IntEnum):
     MODE_0 = 0x00
     MODE_1 = 0x01
     MODE_2 = 0x02
     MODE_3 = 0x03
-
 
 class PacketQuality(IntEnum):
     AA_SUCCESS = 0x00
@@ -52,7 +55,7 @@ class CSStep:
 @dataclass
 class CSStepMode0(CSStep):
     packet_quality: PacketQuality
-    packet_rssi: int # in dBm
+    packet_rssi: Optional[int]  # in dBm, None if not available (0x7F)
     packet_antenna: int
     measured_freq_offset: Optional[float] = None # in 0.01 ppm. Only available on Initiator
 
