@@ -61,6 +61,7 @@ class CSStepMode0(CSStep):
 @dataclass
 class CSStepMode1(CSStep):
     mode: CSMode = CSMode.MODE_1
+    raw_data: bytes
     # TODO: add mode-1 specific fields
 
 @dataclass
@@ -72,4 +73,5 @@ class CSStepMode2(CSStep):
 @dataclass
 class CSStepMode3(CSStep):
     mode: CSMode = CSMode.MODE_3
-    # TODO: add mode-1 specific fields
+    raw_data: bytes
+    # TODO: add mode-3 specific fields
