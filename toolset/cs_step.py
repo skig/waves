@@ -51,7 +51,6 @@ class CSStep:
 
 @dataclass
 class CSStepMode0(CSStep):
-    mode: CSMode = CSMode.MODE_0
     packet_quality: PacketQuality
     packet_rssi: int # in dBm
     packet_antenna: int
@@ -60,18 +59,15 @@ class CSStepMode0(CSStep):
 
 @dataclass
 class CSStepMode1(CSStep):
-    mode: CSMode = CSMode.MODE_1
     raw_data: bytes
     # TODO: add mode-1 specific fields
 
 @dataclass
 class CSStepMode2(CSStep):
-    mode: CSMode = CSMode.MODE_2
     antenna_permutation_index: int
     tones: list[ToneData]
 
 @dataclass
 class CSStepMode3(CSStep):
-    mode: CSMode = CSMode.MODE_3
     raw_data: bytes
     # TODO: add mode-3 specific fields
