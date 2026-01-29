@@ -140,7 +140,52 @@ def parse_mode2(data: bytes, channel: int) -> cs_step.CSStepMode2:
     Returns:
         Parsed CSStepMode2 object with tone data
     """
-    pass
+    def _sign_extend_12bit(value: int) -> int:
+        """Convert 12-bit unsigned to signed integer."""
+        return value - 0x1000 if value >= 0x800 else value
+
+
+    # data_len = 1 (antenna) + k * 4 (where k is number of tones)
+    # k can be 2, 3, 4, or 5
+    if len(data) < 1 or (len(data) - 1) % 4 != 0:
+        logger.error(f"Invalid Mode 2 data length: {len(data)}")
+        return None
+
+    k = (len(data) - 1) // 4
+    if k not in (2, 3, 4, 5):
+        logger.error(f"Invalid number of tones in Mode 2: {k}, expected 2-5")
+        return None
+
+    antenna_permutation_index = data[0]
+    tones = []
+
+    offset = 1
+    for i in range(k):
+        tone_pct_bytes = data[offset:offset + 3]
+        bits = int.from_bytes(tone_pct_bytes, byteorder='little')
+        pct_i = _sign_extend_12bit(bits & 0xFFF)
+        pct_q = _sign_extend_12bit((bits >> 12) & 0xFFF)
+
+        # Parse Tone_Quality_Indicator (1 byte)
+        quality_byte = data[offset + 3]
+        quality = cs_step.ToneQualityIndicator(quality_byte & 0x0F)  # 4 LSB
+        quality_extension_slot = cs_step.ToneQualityIndicatorExtensionSlot((quality_byte >> 4) & 0x0F)  # 4 MSB
+
+        tones.append(cs_step.ToneData(
+            pct_i=pct_i,
+            pct_q=pct_q,
+            quality=quality,
+            quality_extension_slot=quality_extension_slot
+        ))
+
+        offset += 4
+
+    return cs_step.CSStepMode2(
+        mode=cs_step.CSMode.MODE_2,
+        channel=channel,
+        antenna_permutation_index=antenna_permutation_index,
+        tones=tones
+    )
 
 
 def parse_mode3(data: bytes, channel: int) -> cs_step.CSStepMode3:

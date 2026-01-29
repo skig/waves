@@ -75,3 +75,15 @@ class TestParseCSSteps:
         step = result[0]
         assert step.packet_rssi is None
 
+    def test_mode2_basic(self):
+        """Test parsing Mode 2 step with 2 tones."""
+        # mode=2, channel=5, data_len=9
+        # antenna=0x00, tone0: pct=d2df04 quality=00, tone1: pct=ff5f00 quality=12
+        result = cs_step_parser.parse_cs_steps("02050900d2df0400ff5f0012")
+        assert len(result) == 1
+        step = result[0]
+        assert step.mode == 2
+        assert step.channel == 5
+        assert step.antenna_permutation_index == 0
+        assert len(step.tones) == 2
+

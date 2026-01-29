@@ -44,6 +44,7 @@ class ToneData:
     pct_i: int # in signed int 12-bit format
     pct_q: int # in signed int 12-bit format
     quality: ToneQualityIndicator
+    quality_extension_slot: ToneQualityIndicatorExtensionSlot
 
 
 @dataclass
