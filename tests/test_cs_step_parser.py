@@ -3,6 +3,7 @@ import os
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'toolset'))
 
 import cs_step_parser
+import cs_step
 
 
 class TestParseCSSteps:
@@ -77,13 +78,35 @@ class TestParseCSSteps:
 
     def test_mode2_basic(self):
         """Test parsing Mode 2 step with 2 tones."""
-        # mode=2, channel=5, data_len=9
-        # antenna=0x00, tone0: pct=d2df04 quality=00, tone1: pct=ff5f00 quality=12
-        result = cs_step_parser.parse_cs_steps("02050900d2df0400ff5f0012")
-        assert len(result) == 1
+        result = cs_step_parser.parse_cs_steps("02050900d2df0400ff5f001202200d00b8800703b3ff06030380ff13")
+        assert len(result) == 2
         step = result[0]
         assert step.mode == 2
         assert step.channel == 5
         assert step.antenna_permutation_index == 0
         assert len(step.tones) == 2
-
+        assert step.tones[0].pct_i == -46
+        assert step.tones[0].pct_q == 77
+        assert step.tones[0].quality == cs_step.ToneQualityIndicator.TONE_QUALITY_HIGH
+        assert step.tones[0].quality_extension_slot == cs_step.ToneQualityIndicatorExtensionSlot.NOT_TONE_EXTENSION_SLOT
+        assert step.tones[1].pct_i == -1
+        assert step.tones[1].pct_q == 5
+        assert step.tones[1].quality == cs_step.ToneQualityIndicator.TONE_QUALITY_LOW
+        assert step.tones[1].quality_extension_slot == cs_step.ToneQualityIndicatorExtensionSlot.TONE_EXTENSION_NOT_EXPECTED
+        step = result[1]
+        assert step.mode == 2
+        assert step.channel == 32
+        assert step.antenna_permutation_index == 0
+        assert len(step.tones) == 3
+        assert step.tones[0].pct_i == 184
+        assert step.tones[0].pct_q == 120
+        assert step.tones[0].quality == cs_step.ToneQualityIndicator.TONE_QUALITY_UNAVAILABLE
+        assert step.tones[0].quality_extension_slot == cs_step.ToneQualityIndicatorExtensionSlot.NOT_TONE_EXTENSION_SLOT
+        assert step.tones[1].pct_i == -77
+        assert step.tones[1].pct_q == 111
+        assert step.tones[1].quality == cs_step.ToneQualityIndicator.TONE_QUALITY_UNAVAILABLE
+        assert step.tones[1].quality_extension_slot == cs_step.ToneQualityIndicatorExtensionSlot.NOT_TONE_EXTENSION_SLOT
+        assert step.tones[2].pct_i == 3
+        assert step.tones[2].pct_q == -8
+        assert step.tones[2].quality == cs_step.ToneQualityIndicator.TONE_QUALITY_UNAVAILABLE
+        assert step.tones[2].quality_extension_slot == cs_step.ToneQualityIndicatorExtensionSlot.TONE_EXTENSION_NOT_EXPECTED
