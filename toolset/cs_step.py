@@ -1,4 +1,4 @@
-from enum import Enum, IntEnum
+from enum import IntEnum
 from dataclasses import dataclass
 from typing import Optional
 
