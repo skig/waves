@@ -2,7 +2,7 @@ from dataclasses import dataclass
 from typing import Optional
 from enum import IntEnum
 
-from toolset import cs_step
+import cs_step
 
 class ProcedureDoneStatus(IntEnum):
     PROC_ALL_RESULTS_COMPLETED = 0x00
@@ -32,7 +32,6 @@ class SubeventAbortReason(IntEnum):
 @dataclass
 class SubeventResults:
     procedure_counter: int
-    measured_freq_offset: Optional[float] = None # in 0.01 ppm. Only available on Initiator
     reference_power_level: int
     procedure_done_status: ProcedureDoneStatus
     subevent_done_status: SubeventDoneStatus
@@ -40,3 +39,4 @@ class SubeventResults:
     subevent_abort_reason: SubeventAbortReason
     num_steps_reported: int
     steps: list[cs_step.CSStep]
+    measured_freq_offset: Optional[float] = None  # in 0.01 ppm. Only available on Initiator
