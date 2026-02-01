@@ -1,9 +1,4 @@
-import sys
-import os
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'toolset', 'cs_utils'))
-
-import cs_step_parser
-import cs_step
+from toolset.cs_utils import cs_step_parser, cs_step
 
 
 class TestParseCSSteps:

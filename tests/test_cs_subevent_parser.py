@@ -1,9 +1,4 @@
-import sys
-import os
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'toolset', 'cs_utils'))
-
-import cs_subevent_parser
-import cs_subevent
+from toolset.cs_utils import cs_subevent_parser, cs_subevent
 
 
 class TestParseCSSubeventResult:

@@ -1,8 +1,8 @@
 import logging
 import re
 from typing import Optional
-import cs_step_parser
-import cs_subevent
+from . import cs_step_parser
+from . import cs_subevent
 
 logger = logging.getLogger(__name__)
 

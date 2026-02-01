@@ -1,8 +1,7 @@
 from dataclasses import dataclass
 from typing import Optional
 from enum import IntEnum
-
-import cs_step
+from . import cs_step
 
 class ProcedureDoneStatus(IntEnum):
     PROC_ALL_RESULTS_COMPLETED = 0x00

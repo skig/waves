@@ -1,5 +1,5 @@
 import logging
-import cs_step
+from . import cs_step
 
 logger = logging.getLogger(__name__)
 
