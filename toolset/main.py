@@ -1,5 +1,6 @@
 import argparse
 from cs_data_processor import CSDataProcessor
+from gui.cs_viewer import launch_viewer
 
 def main():
     parser = argparse.ArgumentParser(
@@ -38,6 +39,7 @@ def main():
         print(f"Loaded {len(initiator_subevents)} initiator subevents")
         print(f"Loaded {len(reflector_subevents)} reflector subevents")
 
+        launch_viewer(initiator_subevents, reflector_subevents)
 
 if __name__ == '__main__':
     main()
