@@ -39,3 +39,8 @@ class SubeventResults:
     num_steps_reported: int
     steps: list[cs_step.CSStep]
     measured_freq_offset: Optional[float] = None  # in 0.01 ppm. Only available on Initiator
+
+    def __str__(self):
+        return f"SubeventResults(proc:{self.procedure_counter} steps:{len(self.steps)})"
+
+    __repr__ = __str__

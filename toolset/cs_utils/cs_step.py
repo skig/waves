@@ -2,6 +2,8 @@ from enum import IntEnum
 from dataclasses import dataclass
 from typing import Optional
 
+from math import atan2, sqrt
+
 # Special value of Packet_RSSI field
 RSSI_NOT_AVAILABLE = 0x7F
 
@@ -46,11 +48,24 @@ class ToneData:
     quality: ToneQualityIndicator
     quality_extension_slot: ToneQualityIndicatorExtensionSlot
 
+    def __str__(self):
+        if self.quality_extension_slot != ToneQualityIndicatorExtensionSlot.TONE_EXTENSION_NOT_EXPECTED:
+            return f"Tone (I:{self.pct_i} Q:{self.pct_q} Mag: {sqrt(self.pct_i ** 2 + self.pct_q ** 2):.2f}, Phase: {atan2(self.pct_q, self.pct_i):.2f})"
+        else:
+            return f"Empty extension slot (Mag: {sqrt(self.pct_i ** 2 + self.pct_q ** 2):.2f})"
+
+    __repr__ = __str__
+
 
 @dataclass
 class CSStep:
     mode: CSMode
     channel: int
+
+    def __str__(self):
+        return f"Step(mode:{self.mode.name} ch:{self.channel})"
+
+    __repr__ = __str__
 
 
 @dataclass
@@ -60,18 +75,41 @@ class CSStepMode0(CSStep):
     packet_antenna: int
     measured_freq_offset: Optional[float] = None # in 0.01 ppm. Only available on Initiator
 
+    def __str__(self):
+        rssi_str = f"{self.packet_rssi}dBm" if self.packet_rssi is not None else "N/A"
+        return f"Mode0 (ch:{self.channel:02d} rssi:{rssi_str} qual:{self.packet_quality.name})"
+
+    def __repr__(self):
+        return f"\n{self.__str__()}"
+
 
 @dataclass
 class CSStepMode1(CSStep):
     raw_data: bytes
     # TODO: add mode-1 specific fields
 
+    def __str__(self):
+        return f"Mode1 (ch:{self.channel:02d})"
+
+    __repr__ = __str__
+
 @dataclass
 class CSStepMode2(CSStep):
     antenna_permutation_index: int
     tones: list[ToneData]
 
+    def __str__(self):
+        return f"Mode2 (ch:{self.channel:02d} tones:{self.tones})"
+
+    def __repr__(self):
+        return f"\n{self.__str__()}"
+
 @dataclass
 class CSStepMode3(CSStep):
     raw_data: bytes
     # TODO: add mode-3 specific fields
+
+    def __str__(self):
+        return f"Mode3 (ch:{self.channel:02d})"
+
+    __repr__ = __str__
