@@ -1,17 +1,18 @@
 
 
 from queue import Queue
-from typing import Dict, Tuple, Optional
+from typing import Dict, Tuple, Optional, Callable
 from toolset.cs_utils.cs_subevent import SubeventResults
+import time
 
-
-def dual_stream_consumer(initiator_queue: Queue, reflector_queue: Queue):
+def dual_stream_consumer(initiator_queue: Queue, reflector_queue: Queue, gui_callback: Optional[Callable] = None):
     """
     Consume subevents from initiator and reflector queues and couple them by procedure_counter.
 
     Args:
         initiator_queue: Queue containing initiator SubeventResults
         reflector_queue: Queue containing reflector SubeventResults
+        gui_callback: Optional callback to update GUI with coupled data
     """
     initiator_buffer: Dict[int, SubeventResults] = {}
     reflector_buffer: Dict[int, SubeventResults] = {}
@@ -34,7 +35,8 @@ def dual_stream_consumer(initiator_queue: Queue, reflector_queue: Queue):
                 if proc_counter in reflector_buffer:
                     process_coupled_subevents(
                         initiator_buffer.pop(proc_counter),
-                        reflector_buffer.pop(proc_counter)
+                        reflector_buffer.pop(proc_counter),
+                        gui_callback
                     )
 
         # Read from reflector queue
@@ -50,7 +52,8 @@ def dual_stream_consumer(initiator_queue: Queue, reflector_queue: Queue):
                 if proc_counter in initiator_buffer:
                     process_coupled_subevents(
                         initiator_buffer.pop(proc_counter),
-                        reflector_buffer.pop(proc_counter)
+                        reflector_buffer.pop(proc_counter),
+                        gui_callback
                     )
 
     # Process any remaining unpaired subevents
@@ -64,5 +67,19 @@ def dual_stream_consumer(initiator_queue: Queue, reflector_queue: Queue):
         print(f"  Reflector procedure counters: {sorted(reflector_buffer.keys())}")
 
 
-def process_coupled_subevents(initiator: SubeventResults, reflector: SubeventResults):
-    print(initiator, reflector)
+def process_coupled_subevents(initiator: SubeventResults, reflector: SubeventResults, gui_callback: Optional[Callable] = None):
+    """Process coupled subevents and optionally update GUI.
+
+    Args:
+        initiator: Initiator subevent
+        reflector: Reflector subevent
+        gui_callback: Optional callback to update GUI
+    """
+    # Print to console
+    print(f"Proc {initiator.procedure_counter}: Ini={len(initiator.steps)} steps, Ref={len(reflector.steps)} steps")
+
+    # just for testing, TODO: remove it
+    time.sleep(1)
+    # Update GUI if callback provided
+    if gui_callback:
+        gui_callback(initiator, reflector)

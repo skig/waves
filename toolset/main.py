@@ -5,7 +5,7 @@ from threading import Thread, Event
 from toolset.data_sources import FileDataSource
 from toolset.pipeline import producer_worker
 from toolset.processing.cs_subevent_data_consumer import dual_stream_consumer
-from toolset.gui.cs_viewer import launch_viewer
+from toolset.gui.cs_viewer import launch_viewer, launch_viewer_blocking
 
 
 def main():
@@ -63,10 +63,13 @@ def main():
             name="ReflectorProducer"
         )
 
-        # Create consumer thread
+        # Launch GUI
+        viewer = launch_viewer()
+
+        # Create consumer thread with GUI callback
         consumer = Thread(
             target=dual_stream_consumer,
-            args=(initiator_queue, reflector_queue),
+            args=(initiator_queue, reflector_queue, viewer.update_live_data),
             name="Consumer"
         )
 
@@ -76,18 +79,18 @@ def main():
         reflector_producer.start()
         consumer.start()
 
-        # Wait for completion
+        # Run GUI main loop (blocking)
         try:
-            initiator_producer.join()
-            reflector_producer.join()
-            consumer.join()
-            print("\nProcessing complete!")
+            viewer.run()
         except KeyboardInterrupt:
             print("\nStopping...")
-            stop_event.set()
-            initiator_producer.join()
-            reflector_producer.join()
-            consumer.join()
+
+        # Cleanup
+        stop_event.set()
+        initiator_producer.join(timeout=1)
+        reflector_producer.join(timeout=1)
+        consumer.join(timeout=1)
+        print("\nProcessing complete!")
 
 
 if __name__ == '__main__':
