@@ -1,7 +1,7 @@
 import re
 from typing import List, Optional
-from cs_utils.cs_subevent_parser import parse_cs_subevent_result
-from cs_utils.cs_subevent import SubeventResults
+from toolset.cs_utils.cs_subevent_parser import parse_cs_subevent_result
+from toolset.cs_utils.cs_subevent import SubeventResults
 
 
 class CSDataProcessor:

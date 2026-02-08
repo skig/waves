@@ -1,7 +1,6 @@
 import tkinter as tk
 from tkinter import ttk
 from typing import List
-from cs_utils.cs_step import CSStepMode2, ToneQualityIndicator
 
 
 class CSViewer:
@@ -95,32 +94,10 @@ class CSViewer:
         channels = set(step.channel for step in steps)
         num_channels = len(channels)
 
-        # Count tone qualities (only for Mode-2 steps)
-        tone_counts = {
-            ToneQualityIndicator.TONE_QUALITY_HIGH: 0,
-            ToneQualityIndicator.TONE_QUALITY_MEDIUM: 0,
-            ToneQualityIndicator.TONE_QUALITY_LOW: 0,
-            ToneQualityIndicator.TONE_QUALITY_UNAVAILABLE: 0
-        }
-
-        for step in steps:
-            if isinstance(step, CSStepMode2):
-                for tone in step.tones:
-                    tone_counts[tone.quality] += 1
-
-        # Build info string
-        info = f"{num_steps} steps, {num_channels} ch"
-
-        # Add tone quality info if any Mode-2 steps exist
-        total_tones = sum(tone_counts.values())
-        if total_tones > 0:
-            info += f" | H:{tone_counts[ToneQualityIndicator.TONE_QUALITY_HIGH]}"
-            info += f" M:{tone_counts[ToneQualityIndicator.TONE_QUALITY_MEDIUM]}"
-            info += f" L:{tone_counts[ToneQualityIndicator.TONE_QUALITY_LOW]}"
-            info += f" U:{tone_counts[ToneQualityIndicator.TONE_QUALITY_UNAVAILABLE]}"
+        # Build simple info string
+        info = f"{num_steps} steps, {num_channels} channels: {sorted(channels)}"
 
         return info
-
 
     def run(self):
         """Start the GUI event loop"""

@@ -1,6 +1,12 @@
 import argparse
-from cs_data_processor import CSDataProcessor
-from gui.cs_viewer import launch_viewer
+from queue import Queue
+from threading import Thread, Event
+
+from toolset.data_sources import FileDataSource
+from toolset.pipeline import producer_worker
+from toolset.processing.cs_subevent_data_consumer import dual_stream_consumer
+from toolset.gui.cs_viewer import launch_viewer
+
 
 def main():
     parser = argparse.ArgumentParser(
@@ -27,19 +33,62 @@ def main():
 
     args = parser.parse_args()
 
-    processor = CSDataProcessor()
+    # Create separate queues for each stream
+    initiator_queue = Queue(maxsize=100)
+    reflector_queue = Queue(maxsize=100)
+    stop_event = Event()
 
     if args.uart:
         print("Mode: Reading from COM-ports")
         # TODO: Implement UART mode
+        print("UART mode not yet implemented")
+        return
     else:
         print("Mode: Reading from log files")
-        initiator_subevents = processor.process_file(args.initiator)
-        reflector_subevents = processor.process_file(args.reflector)
-        print(f"Loaded {len(initiator_subevents)} initiator subevents")
-        print(f"Loaded {len(reflector_subevents)} reflector subevents")
 
-        launch_viewer(initiator_subevents, reflector_subevents)
+        # Create data sources
+        initiator_source = FileDataSource(args.initiator)
+        reflector_source = FileDataSource(args.reflector)
+
+        # Create producer threads
+        initiator_producer = Thread(
+            target=producer_worker,
+            args=(initiator_source, initiator_queue, stop_event),
+            name="InitiatorProducer"
+        )
+
+        reflector_producer = Thread(
+            target=producer_worker,
+            args=(reflector_source, reflector_queue, stop_event),
+            name="ReflectorProducer"
+        )
+
+        # Create consumer thread
+        consumer = Thread(
+            target=dual_stream_consumer,
+            args=(initiator_queue, reflector_queue),
+            name="Consumer"
+        )
+
+        # Start all threads
+        print("Starting data processing pipeline...")
+        initiator_producer.start()
+        reflector_producer.start()
+        consumer.start()
+
+        # Wait for completion
+        try:
+            initiator_producer.join()
+            reflector_producer.join()
+            consumer.join()
+            print("\nProcessing complete!")
+        except KeyboardInterrupt:
+            print("\nStopping...")
+            stop_event.set()
+            initiator_producer.join()
+            reflector_producer.join()
+            consumer.join()
+
 
 if __name__ == '__main__':
     main()
