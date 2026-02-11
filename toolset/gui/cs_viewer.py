@@ -201,9 +201,3 @@ def launch_viewer(initiator_subevents: List = None, reflector_subevents: List = 
     """Launch the CS Viewer GUI"""
     viewer = CSViewer(initiator_subevents, reflector_subevents)
     return viewer
-
-
-def launch_viewer_blocking(initiator_subevents: List, reflector_subevents: List):
-    """Launch the CS Viewer GUI in blocking mode (for file processing)"""
-    viewer = CSViewer(initiator_subevents, reflector_subevents)
-    viewer.run()
