@@ -19,7 +19,7 @@ class CSViewer:
 
         self.phase_slope_map: Dict[int, Dict[int, float]] = {}
 
-        self.live_mode = False
+        self.live_mode = True
         self.live_initiator: Optional[SubeventResults] = None
         self.live_reflector: Optional[SubeventResults] = None
         self.live_phase_slope: Optional[Dict[int, float]] = None
@@ -39,7 +39,7 @@ class CSViewer:
         main_frame = ttk.Frame(self.root, padding="20")
         main_frame.grid(row=0, column=0, sticky=(tk.W, tk.E, tk.N, tk.S))
 
-        self.live_var = tk.BooleanVar(value=False)
+        self.live_var = tk.BooleanVar(value=True)
         live_checkbox = ttk.Checkbutton(
             main_frame,
             text="Live",
