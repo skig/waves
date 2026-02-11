@@ -19,13 +19,13 @@ def main():
     parser.add_argument(
         '-i', '--initiator',
         required=True,
-        help='Path to initiator log file or COM-port (e.g., /dev/ttyUSB0 or COM3)'
+        help='Path to initiator log file or COM-port (e.g., /dev/ttyACM1)'
     )
 
     parser.add_argument(
         '-r', '--reflector',
         required=True,
-        help='Path to reflector log file or COM-port (e.g., /dev/ttyUSB1 or COM4)'
+        help='Path to reflector log file or COM-port (e.g., /dev/ttyACM3)'
     )
 
     parser.add_argument(
@@ -43,87 +43,49 @@ def main():
 
     if args.uart:
         print("Mode: Reading from COM-ports")
-
         initiator_source = UartDataSource(args.initiator, baudrate=115200)
         reflector_source = UartDataSource(args.reflector, baudrate=115200)
 
-        initiator_producer = Thread(
-            target=producer_worker,
-            args=(initiator_source, initiator_queue, stop_event),
-            name="InitiatorProducer"
-        )
-
-        reflector_producer = Thread(
-            target=producer_worker,
-            args=(reflector_source, reflector_queue, stop_event),
-            name="ReflectorProducer"
-        )
-
-        viewer = launch_viewer()
-
-        consumer = Thread(
-            target=dual_stream_consumer,
-            args=(initiator_queue, reflector_queue, viewer.update_live_data),
-            name="Consumer"
-        )
-
-        print("Starting data processing pipeline...")
-        initiator_producer.start()
-        reflector_producer.start()
-        consumer.start()
-
-        try:
-            viewer.run()
-        except KeyboardInterrupt:
-            print("\nStopping...")
-
-        stop_event.set()
-        initiator_producer.join(timeout=1)
-        reflector_producer.join(timeout=1)
-        consumer.join(timeout=1)
-        print("\nProcessing complete!")
-
     else:
         print("Mode: Reading from log files")
-
         initiator_source = FileDataSource(args.initiator)
         reflector_source = FileDataSource(args.reflector)
 
-        initiator_producer = Thread(
-            target=producer_worker,
-            args=(initiator_source, initiator_queue, stop_event),
-            name="InitiatorProducer"
-        )
+    initiator_producer = Thread(
+        target=producer_worker,
+        args=(initiator_source, initiator_queue, stop_event),
+        name="InitiatorProducer"
+    )
 
-        reflector_producer = Thread(
-            target=producer_worker,
-            args=(reflector_source, reflector_queue, stop_event),
-            name="ReflectorProducer"
-        )
+    reflector_producer = Thread(
+        target=producer_worker,
+        args=(reflector_source, reflector_queue, stop_event),
+        name="ReflectorProducer"
+    )
 
-        viewer = launch_viewer()
+    viewer = launch_viewer()
 
-        consumer = Thread(
-            target=dual_stream_consumer,
-            args=(initiator_queue, reflector_queue, viewer.update_live_data),
-            name="Consumer"
-        )
+    consumer = Thread(
+        target=dual_stream_consumer,
+        args=(initiator_queue, reflector_queue, viewer.update_live_data),
+        name="Consumer"
+    )
 
-        print("Starting data processing pipeline...")
-        initiator_producer.start()
-        reflector_producer.start()
-        consumer.start()
+    print("Starting data processing pipeline...")
+    initiator_producer.start()
+    reflector_producer.start()
+    consumer.start()
 
-        try:
-            viewer.run()
-        except KeyboardInterrupt:
-            print("\nStopping...")
+    try:
+        viewer.run()
+    except KeyboardInterrupt:
+        print("\nStopping...")
 
-        stop_event.set()
-        initiator_producer.join(timeout=1)
-        reflector_producer.join(timeout=1)
-        consumer.join(timeout=1)
-        print("\nProcessing complete!")
+    stop_event.set()
+    initiator_producer.join(timeout=1)
+    reflector_producer.join(timeout=1)
+    consumer.join(timeout=1)
+    print("\nProcessing complete!")
 
 
 if __name__ == '__main__':
