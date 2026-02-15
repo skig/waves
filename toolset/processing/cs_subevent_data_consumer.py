@@ -4,6 +4,7 @@ from queue import Queue
 from typing import Dict, Tuple, Optional, Callable
 from toolset.cs_utils.cs_subevent import SubeventResults
 from toolset.processing.cs_phase_slope import calculate_phase_slope_data
+from toolset.processing.cs_rssi_calc import calculate_rssi_data
 import time
 
 def dual_stream_consumer(initiator_queue: Queue, reflector_queue: Queue, gui_callback: Optional[Callable] = None):
@@ -79,6 +80,7 @@ def process_coupled_subevents(initiator: SubeventResults, reflector: SubeventRes
     print(f"Proc {initiator.procedure_counter}: Ini={len(initiator.steps)} steps, Ref={len(reflector.steps)} steps")
 
     phase_slope_data = calculate_phase_slope_data(initiator, reflector)
+    rssi_data = calculate_rssi_data(initiator, reflector)
 
     time.sleep(1)
 
