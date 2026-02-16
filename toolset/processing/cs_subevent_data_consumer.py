@@ -80,9 +80,9 @@ def process_coupled_subevents(initiator: SubeventResults, reflector: SubeventRes
     print(f"Proc {initiator.procedure_counter}: Ini={len(initiator.steps)} steps, Ref={len(reflector.steps)} steps")
 
     phase_slope_data = calculate_phase_slope_data(initiator, reflector)
-    rssi_data = calculate_rssi_data(initiator, reflector)
+    rssi_data_ini, rssi_data_ref = calculate_rssi_data(initiator, reflector)
 
     time.sleep(1)
 
     if gui_callback:
-        gui_callback(initiator, reflector, phase_slope_data)
+        gui_callback(initiator, reflector, phase_slope_data, rssi_data_ini, rssi_data_ref)

@@ -18,18 +18,22 @@ class CSViewer:
         self.reflector_map = {se.procedure_counter: se for se in self.reflector_subevents if se is not None}
 
         self.phase_slope_map: Dict[int, Dict[int, float]] = {}
+        self.rssi_ini_map: Dict[int, Dict[int, float]] = {}
+        self.rssi_ref_map: Dict[int, Dict[int, float]] = {}
 
         self.live_mode = True
         self.live_initiator: Optional[SubeventResults] = None
         self.live_reflector: Optional[SubeventResults] = None
         self.live_phase_slope: Optional[Dict[int, float]] = None
+        self.live_rssi_ini: Optional[Dict[int, float]] = None
+        self.live_rssi_ref: Optional[Dict[int, float]] = None
         self._all_counters_cache = set()
 
         all_counters = sorted(set(self.initiator_map.keys()) | set(self.reflector_map.keys()))
 
         self.root = tk.Tk()
         self.root.title("Channel Sounding Viewer")
-        self.root.geometry("900x600")
+        self.root.geometry("1200x900")
 
         self._create_widgets(all_counters)
 
@@ -75,12 +79,20 @@ class CSViewer:
 
         ttk.Separator(main_frame, orient='horizontal').grid(row=4, column=0, columnspan=3, sticky=(tk.W, tk.E), pady=15)
 
-        self.fig = Figure(figsize=(8, 4), dpi=100)
-        self.ax = self.fig.add_subplot(111)
-        self.ax.set_xlabel('Channel Index')
-        self.ax.set_ylabel('Sum of Phases')
-        self.ax.set_title('Phase Slope')
-        self.ax.grid(True)
+        self.fig = Figure(figsize=(8, 8), dpi=100)
+        self.ax_phase = self.fig.add_subplot(211)
+        self.ax_phase.set_xlabel('Channel Index')
+        self.ax_phase.set_ylabel('Sum of Phases')
+        self.ax_phase.set_title('Phase Slope')
+        self.ax_phase.grid(True)
+
+        self.ax_rssi = self.fig.add_subplot(212)
+        self.ax_rssi.set_xlabel('Channel Index')
+        self.ax_rssi.set_ylabel('RSSI Magnitude')
+        self.ax_rssi.set_title('RSSI Values')
+        self.ax_rssi.grid(True)
+
+        self.fig.tight_layout()
 
         self.canvas = FigureCanvasTkAgg(self.fig, master=main_frame)
         self.canvas.get_tk_widget().grid(row=5, column=0, columnspan=3, sticky=(tk.W, tk.E, tk.N, tk.S), pady=10)
@@ -121,6 +133,8 @@ class CSViewer:
                     self.reflector_steps_label.config(text="waiting for data...")
 
                 phase_slope_data = self.live_phase_slope
+                rssi_ini_data = self.live_rssi_ini
+                rssi_ref_data = self.live_rssi_ref
             else:
                 if counter_value in self.initiator_map:
                     info = self._get_subevent_info(self.initiator_map[counter_value])
@@ -135,24 +149,31 @@ class CSViewer:
                     self.reflector_steps_label.config(text="none")
 
                 phase_slope_data = self.phase_slope_map.get(counter_value)
+                rssi_ini_data = self.rssi_ini_map.get(counter_value)
+                rssi_ref_data = self.rssi_ref_map.get(counter_value)
 
-            self._update_plot(phase_slope_data)
+            self._update_phase_plot(phase_slope_data)
+            self._update_rssi_plot(rssi_ini_data, rssi_ref_data)
 
         except Exception as e:
             print(f"[ERROR] Exception in _update_display: {type(e).__name__}: {e}")
             import traceback
             traceback.print_exc()
 
-    def update_live_data(self, initiator: SubeventResults, reflector: SubeventResults, phase_slope_data: Dict[int, float]):
+    def update_live_data(self, initiator: SubeventResults, reflector: SubeventResults, phase_slope_data: Dict[int, float], rssi_data_ini: Dict[int, float], rssi_data_ref: Dict[int, float]):
         """Update live data from consumer thread - thread-safe"""
         def _update():
             self.live_initiator = initiator
             self.live_reflector = reflector
             self.live_phase_slope = phase_slope_data
+            self.live_rssi_ini = rssi_data_ini
+            self.live_rssi_ref = rssi_data_ref
 
             self.initiator_map[initiator.procedure_counter] = initiator
             self.reflector_map[reflector.procedure_counter] = reflector
             self.phase_slope_map[initiator.procedure_counter] = phase_slope_data
+            self.rssi_ini_map[initiator.procedure_counter] = rssi_data_ini
+            self.rssi_ref_map[initiator.procedure_counter] = rssi_data_ref
 
             all_counters = sorted(set(self.initiator_map.keys()) | set(self.reflector_map.keys()))
             if all_counters:
@@ -176,19 +197,51 @@ class CSViewer:
 
         return info
 
-    def _update_plot(self, phase_slope_data: Optional[Dict[int, float]]):
+    def _update_phase_plot(self, phase_slope_data: Optional[Dict[int, float]]):
         """Update the phase slope plot"""
-        self.ax.clear()
-        self.ax.set_xlabel('Channel Index')
-        self.ax.set_ylabel('Sum of Phases')
-        self.ax.set_title('Phase Slope')
-        self.ax.grid(True)
+        self.ax_phase.clear()
+        self.ax_phase.set_xlabel('Channel Index')
+        self.ax_phase.set_ylabel('Sum of Phases')
+        self.ax_phase.set_title('Phase Slope')
+        self.ax_phase.grid(True)
 
         if phase_slope_data and len(phase_slope_data) > 0:
             sorted_channels = sorted(phase_slope_data.keys())
             phases = [phase_slope_data[ch] for ch in sorted_channels]
 
-            self.ax.bar(sorted_channels, phases, color='steelblue', width=0.6)
+            self.ax_phase.bar(sorted_channels, phases, color='steelblue', width=0.6)
+
+        self.canvas.draw()
+
+    def _update_rssi_plot(self, rssi_ini_data: Optional[Dict[int, float]], rssi_ref_data: Optional[Dict[int, float]]):
+        """Update the RSSI plot"""
+        self.ax_rssi.clear()
+        self.ax_rssi.set_xlabel('Channel Index')
+        self.ax_rssi.set_ylabel('RSSI Magnitude')
+        self.ax_rssi.set_title('RSSI Values')
+        self.ax_rssi.grid(True)
+
+        has_data = False
+        bar_width = 0.35
+
+        if rssi_ini_data and len(rssi_ini_data) > 0:
+            sorted_channels = sorted(rssi_ini_data.keys())
+            rssi_values = [rssi_ini_data[ch] for ch in sorted_channels]
+            positions = [ch - bar_width/2 for ch in sorted_channels]
+            self.ax_rssi.bar(positions, rssi_values, width=bar_width,
+                           color='blue', label='Initiator', alpha=0.8)
+            has_data = True
+
+        if rssi_ref_data and len(rssi_ref_data) > 0:
+            sorted_channels = sorted(rssi_ref_data.keys())
+            rssi_values = [rssi_ref_data[ch] for ch in sorted_channels]
+            positions = [ch + bar_width/2 for ch in sorted_channels]
+            self.ax_rssi.bar(positions, rssi_values, width=bar_width,
+                           color='red', label='Reflector', alpha=0.8)
+            has_data = True
+
+        if has_data:
+            self.ax_rssi.legend()
 
         self.canvas.draw()
 

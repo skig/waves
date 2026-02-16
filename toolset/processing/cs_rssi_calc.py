@@ -4,17 +4,10 @@ from toolset.cs_utils.cs_subevent import SubeventResults
 from toolset.cs_utils.cs_step import CSStepMode2, ToneQualityIndicatorExtensionSlot
 
 def calculate_rssi_data(initiator: SubeventResults, reflector: SubeventResults) -> Dict[int, float]:
-    initiator_phases = _extract_channel_rssi(initiator)
-    reflector_phases = _extract_channel_rssi(reflector)
+    initiator_rssi_vals = _extract_channel_rssi(initiator)
+    reflector_rssi_vals = _extract_channel_rssi(reflector)
 
-    common_channels = set(initiator_phases.keys()) & set(reflector_phases.keys())
-
-    rssi_avg = {}
-    for channel in common_channels:
-        print(f"ch {channel}: {initiator_phases[channel]}, {reflector_phases[channel]}")
-        rssi_avg[channel] = initiator_phases[channel]
-
-    return rssi_avg
+    return initiator_rssi_vals, reflector_rssi_vals
 
 def _extract_channel_rssi(subevent: SubeventResults) -> Dict[int, float]:
     channel_rssi = {}
@@ -29,6 +22,7 @@ def _extract_channel_rssi(subevent: SubeventResults) -> Dict[int, float]:
         avg_i, avg_q = _calculate_average_rssi(step)
         rssi = sqrt(avg_i ** 2 + avg_q ** 2)
 
+        # TODO: if channel_rssi is not empty, we need to do something smart. Maybe find average or something like that?
         channel_rssi[step.channel] = rssi
 
     return channel_rssi
