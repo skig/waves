@@ -48,6 +48,7 @@ static void subevent_result_cb(struct bt_conn *conn, struct bt_conn_le_cs_subeve
 			printk("\n");
 		}
 	}
+	LOG_INF("CS Subevent end");
 }
 
 static void connected_cb(struct bt_conn *conn, uint8_t err)

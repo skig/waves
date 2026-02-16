@@ -45,6 +45,7 @@ static void subevent_result_cb(struct bt_conn *conn, struct bt_conn_le_cs_subeve
 			printk("\n");
 		}
 	}
+	LOG_INF("CS Subevent end");
 }
 
 static void security_changed(struct bt_conn *conn, bt_security_t level, enum bt_security_err err)
@@ -157,7 +158,7 @@ static void procedure_enable_cb(struct bt_conn *conn,
 		if (params->state == 1) {
 			LOG_INF("CS procedures enabled:");
 			LOG_INF(" - config ID: %u", params->config_id);
-			LOG_INF(" - antenna configuration index: %u", 
+			LOG_INF(" - antenna configuration index: %u",
 				params->tone_antenna_config_selection);
 			LOG_INF(" - TX power: %d dBm", params->selected_tx_power);
 			LOG_INF(" - subevent length: %u us", params->subevent_len);

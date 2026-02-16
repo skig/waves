@@ -6,7 +6,8 @@ from toolset.cs_utils.cs_subevent import SubeventResults
 
 
 class UartDataSource(DataSource):
-    MARKER = "I: CS Subevent result received:"
+    START_MARKER = "I: CS Subevent result received:"
+    END_MARKER = "I: CS Subevent end"
 
     def __init__(self, port: str, baudrate: int = 115200, log_file: Optional[str] = None):
         self.port = port
@@ -45,18 +46,27 @@ class UartDataSource(DataSource):
                     except UnicodeDecodeError:
                         continue
 
-                    while self.MARKER in self.buffer:
-                        start_idx = self.buffer.find(self.MARKER)
-                        next_idx = self.buffer.find(self.MARKER, start_idx + len(self.MARKER))
+                    # Process complete subevents in buffer
+                    while self.START_MARKER in self.buffer:
+                        start_idx = self.buffer.find(self.START_MARKER)
 
-                        if next_idx != -1:
-                            subevent_text = self.buffer[start_idx:next_idx]
-                            self.buffer = self.buffer[next_idx:]
+                        # Discard any data before the start marker
+                        if start_idx > 0:
+                            self.buffer = self.buffer[start_idx:]
+                            start_idx = 0
+
+                        end_idx = self.buffer.find(self.END_MARKER, start_idx + len(self.START_MARKER))
+
+                        if end_idx != -1:
+                            # Extract complete subevent from start to end marker
+                            subevent_text = self.buffer[start_idx:end_idx + len(self.END_MARKER)]
+                            self.buffer = self.buffer[end_idx + len(self.END_MARKER):]
 
                             parsed = parse_cs_subevent_result(subevent_text)
                             if parsed:
                                 yield parsed
                         else:
+                            # Don't have complete subevent yet, wait for more data
                             break
 
         except serial.SerialException as e:

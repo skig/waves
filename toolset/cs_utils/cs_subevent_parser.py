@@ -87,8 +87,8 @@ def parse_cs_subevent_result(text_data: str) -> Optional[cs_subevent.SubeventRes
             measured_freq_offset = float(match.group(1))
 
         # Extract raw step data (hex string)
-        # Find "Raw step data:" and collect all hex data after it
-        match = re.search(r'Raw step data:(.+?)(?:\n\n|\Z)', text_data, re.DOTALL)
+        # Find "Raw step data:" and collect all hex data after it, but stop before end marker
+        match = re.search(r'Raw step data:(.+?)(?:\n\n|I: CS Subevent end|\Z)', text_data, re.DOTALL)
         if not match:
             if num_steps_reported > 0:
                 logger.error("Could not find Raw step data in text data")
