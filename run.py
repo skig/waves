@@ -60,8 +60,8 @@ def main():
         log_dir = 'log'
         os.makedirs(log_dir, exist_ok=True)
         timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-        initiator_log_file = os.path.join(log_dir, f'initiator_{timestamp}.txt')
-        reflector_log_file = os.path.join(log_dir, f'reflector_{timestamp}.txt')
+        initiator_log_file = os.path.join(log_dir, f'{timestamp}_initiator.txt')
+        reflector_log_file = os.path.join(log_dir, f'{timestamp}_reflector.txt')
         print(f"Raw logging enabled:")
         print(f"  Initiator: {initiator_log_file}")
         print(f"  Reflector: {reflector_log_file}")
