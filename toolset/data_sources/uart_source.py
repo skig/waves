@@ -8,11 +8,16 @@ from toolset.cs_utils.cs_subevent import SubeventResults
 class UartDataSource(DataSource):
     MARKER = "I: CS Subevent result received:"
 
-    def __init__(self, port: str, baudrate: int = 115200):
+    def __init__(self, port: str, baudrate: int = 115200, log_file: Optional[str] = None):
         self.port = port
         self.baudrate = baudrate
         self.serial_conn = None
         self.buffer = ""
+        self.log_file = log_file
+        self.log_handle = None
+
+        if self.log_file:
+            self.log_handle = open(self.log_file, 'w', encoding='utf-8')
 
     def read(self) -> Iterator[Optional[SubeventResults]]:
         """Yield subevents from UART as they arrive."""
@@ -30,7 +35,13 @@ class UartDataSource(DataSource):
                 if self.serial_conn.in_waiting > 0:
                     chunk = self.serial_conn.read(self.serial_conn.in_waiting)
                     try:
-                        self.buffer += chunk.decode('utf-8', errors='replace')
+                        decoded_chunk = chunk.decode('utf-8', errors='replace')
+                        self.buffer += decoded_chunk
+
+                        # Write raw data to log file if enabled
+                        if self.log_handle:
+                            self.log_handle.write(decoded_chunk)
+                            self.log_handle.flush()
                     except UnicodeDecodeError:
                         continue
 
@@ -57,3 +68,5 @@ class UartDataSource(DataSource):
         """Close serial connection."""
         if self.serial_conn and self.serial_conn.is_open:
             self.serial_conn.close()
+        if self.log_handle:
+            self.log_handle.close()

@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 
 import argparse
+import os
+from datetime import datetime
 from queue import Queue
 from threading import Thread, Event
 
@@ -34,17 +36,40 @@ def main():
         help='If specified, treat initiator and reflector as COM-ports instead of log files'
     )
 
+    parser.add_argument(
+        '--log-uart',
+        action='store_true',
+        help='Write raw UART data to log files in log/ folder'
+    )
+
     args = parser.parse_args()
+
+    # Validate arguments
+    if args.log_uart and not args.uart:
+        parser.error("--log-uart can only be used with --uart")
 
     # Create separate queues for each stream
     initiator_queue = Queue(maxsize=100)
     reflector_queue = Queue(maxsize=100)
     stop_event = Event()
 
+    # Setup raw logging if requested
+    initiator_log_file = None
+    reflector_log_file = None
+    if args.log_uart:
+        log_dir = 'log'
+        os.makedirs(log_dir, exist_ok=True)
+        timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+        initiator_log_file = os.path.join(log_dir, f'initiator_{timestamp}.txt')
+        reflector_log_file = os.path.join(log_dir, f'reflector_{timestamp}.txt')
+        print(f"Raw logging enabled:")
+        print(f"  Initiator: {initiator_log_file}")
+        print(f"  Reflector: {reflector_log_file}")
+
     if args.uart:
         print("Mode: Reading from COM-ports")
-        initiator_source = UartDataSource(args.initiator, baudrate=115200)
-        reflector_source = UartDataSource(args.reflector, baudrate=115200)
+        initiator_source = UartDataSource(args.initiator, baudrate=115200, log_file=initiator_log_file)
+        reflector_source = UartDataSource(args.reflector, baudrate=115200, log_file=reflector_log_file)
 
     else:
         print("Mode: Reading from log files")
