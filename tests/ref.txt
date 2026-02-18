@@ -88,6 +88,7 @@ I: Raw step data:
   0900c37ff900ca3ff920024a09000961
   02001030001202230900b05f090004a0
   0012
+I: CS Subevent end
 I: CS Subevent result received:
 I:  - Procedure counter: 1
 I:  - Procedure done status: 0
@@ -155,6 +156,7 @@ I: Raw step data:
   09005e4000005de0002002220900ee2f
   0800e61f082002050900cf0f0500facf
   ff12
+I: CS Subevent end
 I: CS Subevent result received:
 I:  - Procedure counter: 2
 I:  - Procedure done status: 0
@@ -222,6 +224,7 @@ I: Raw step data:
   0900c4af070002600012022209003690
   f80004500012021f0900027007000870
   0720
+I: CS Subevent end
 I: CS Subevent result received:
 I:  - Procedure counter: 3
 I:  - Procedure done status: 0
@@ -289,6 +292,7 @@ I: Raw step data:
   0900ebdf07000460001202070900d76f
   0500ff6f001202260900732f000074ff
   ff20
+I: CS Subevent end
 I: CS Subevent result received:
 I:  - Procedure counter: 4
 I:  - Procedure done status: 0
@@ -356,6 +360,7 @@ I: Raw step data:
   09002faffe00f20f0012024c09007be0
   f5007cf0f520022509005d80f900f74f
   0012
+I: CS Subevent end
 I: CS Subevent result received:
 I:  - Procedure counter: 5
 I:  - Procedure done status: 0
@@ -423,6 +428,7 @@ I: Raw step data:
   09004c5fff004bfffe20020d0900c4cf
   fb00f92f0012024009007b7f09007a5f
   0920
+I: CS Subevent end
 I: CS Subevent result received:
 I:  - Procedure counter: 6
 I:  - Procedure done status: 0
@@ -490,6 +496,7 @@ I: Raw step data:
   09002490f8002ab0f8200220090019c0
   09000680ff12021309005c80fe00f9ff
   ff12
+I: CS Subevent end
 I: CS Subevent result received:
 I:  - Procedure counter: 7
 I:  - Procedure done status: 0
@@ -557,6 +564,7 @@ I: Raw step data:
   0900c320f100f34fff1202210900b970
   f9000aa0ff12021a0900bf4ff700f99f
   ff12
+I: CS Subevent end
 I: CS Subevent result received:
 I:  - Procedure counter: 8
 I:  - Procedure done status: 0
@@ -624,6 +632,7 @@ I: Raw step data:
   09003541fc003a11fe2002220900603f
   09000de0ff12022f0900765ff2000000
   ff12
+I: CS Subevent end
 I: CS Subevent result received:
 I:  - Procedure counter: 9
 I:  - Procedure done status: 0
@@ -691,6 +700,7 @@ I: Raw step data:
   0900c3e0fa00c770fb20021a0900a4bf
   ff00fbafff12022f0900d14f0900fc6f
   ff12
+I: CS Subevent end
 I: CS Subevent result received:
 I:  - Procedure counter: 10
 I:  - Procedure done status: 0
@@ -758,6 +768,7 @@ I: Raw step data:
   09003c0ffb00f68f001202310900a0c0
   0000f75f001202430900c4600400c100
   0520
+I: CS Subevent end
 I: CS Subevent result received:
 I:  - Procedure counter: 11
 I:  - Procedure done status: 0
@@ -825,6 +836,7 @@ I: Raw step data:
   0900cfeff8000d90001202400900fe00
   01000ff0ff12020a090065d0fb006600
   fc20
+I: CS Subevent end
 I: CS Subevent result received:
 I:  - Procedure counter: 12
 I:  - Procedure done status: 0
@@ -892,6 +904,7 @@ I: Raw step data:
   0900a16ffa00a52ffa20022d0900c7ef
   0800bc9f082002460900c3e00400fcaf
   0012
+I: CS Subevent end
 I: CS Subevent result received:
 I:  - Procedure counter: 13
 I:  - Procedure done status: 0
@@ -959,6 +972,7 @@ I: Raw step data:
   09007fe008007770092002220900ac30
   0000f6bfff1202250900588ffb005b1f
   fb20
+I: CS Subevent end
 I: CS Subevent result received:
 I:  - Procedure counter: 14
 I:  - Procedure done status: 0
@@ -1026,6 +1040,7 @@ I: Raw step data:
   09008cbff9008f7ff920024209007abf
   1300f12fff12021d09006230f6006030
   f620
+I: CS Subevent end
 I: CS Subevent result received:
 I:  - Procedure counter: 15
 I:  - Procedure done status: 0
@@ -1093,6 +1108,7 @@ I: Raw step data:
   090008100800fc2f0820021c0900dcdf
   f900e89ff9200214090047f0ff004630
   0020
+I: CS Subevent end
 I: CS Subevent result received:
 I:  - Procedure counter: 16
 I:  - Procedure done status: 0
@@ -1160,6 +1176,7 @@ I: Raw step data:
   09005d30fc00fc9fff12022509008dd0
   fd0189d0fe20022d09008a3004008850
   0420
+I: CS Subevent end
 I: CS Subevent result received:
 I:  - Procedure counter: 17
 I:  - Procedure done status: 0
@@ -1227,6 +1244,7 @@ I: Raw step data:
   0900b8200000b8000020023309005d7f
   fd00fa7f0012023f09005fdf06005dcf
   0620
+I: CS Subevent end
 I: CS Subevent result received:
 I:  - Procedure counter: 18
 I:  - Procedure done status: 0
@@ -1294,6 +1312,7 @@ I: Raw step data:
   09000330f900fd9fff12023d090014e0
   0e0004e00e20020d090063f00200f9cf
   ff12
+I: CS Subevent end
 I: CS Subevent result received:
 I:  - Procedure counter: 19
 I:  - Procedure done status: 0
@@ -1361,6 +1380,7 @@ I: Raw step data:
   090074cff3000b70ff1202380900253f
   ff00f45f0012021109005170fc00fdaf
   ff12
+I: CS Subevent end
 I: CS Subevent result received:
 I:  - Procedure counter: 20
 I:  - Procedure done status: 0
@@ -1428,6 +1448,7 @@ I: Raw step data:
   09002cdf050027af04200215090099ff
   010097af0120022509005abff90066af
   f820
+I: CS Subevent end
 I: CS Subevent result received:
 I:  - Procedure counter: 21
 I:  - Procedure done status: 0
@@ -1495,6 +1516,7 @@ I: Raw step data:
   09008bcf00000290ff12023f0900afff
   0d00b1ff0d20023e0900e210fc00e360
   fc20
+I: CS Subevent end
 I: CS Subevent result received:
 I:  - Procedure counter: 22
 I:  - Procedure done status: 0
@@ -1562,6 +1584,7 @@ I: Raw step data:
   0900c480f900c5c0f920020c09004f20
   fa00f92f001202280900c2300100c290
   0120
+I: CS Subevent end
 I: CS Subevent result received:
 I:  - Procedure counter: 23
 I:  - Procedure done status: 0
@@ -1629,6 +1652,7 @@ I: Raw step data:
   09009760fc009bf0fc20022809006bff
   f6006afff6200237090059af0a00611f
   0b20
+I: CS Subevent end
 I: CS Subevent result received:
 I:  - Procedure counter: 24
 I:  - Procedure done status: 0
@@ -1696,6 +1720,7 @@ I: Raw step data:
   0900978ff900fc8fff1202450900e7f0
   0000e6e00020020f090069700000faaf
   ff12
+I: CS Subevent end
 I: CS Subevent result received:
 I:  - Procedure counter: 25
 I:  - Procedure done status: 0
@@ -1763,6 +1788,7 @@ I: Raw step data:
   0900ac6ff6000ab0ff12023f0900978f
   0b0085cf0a200214090061d00000fd6f
   0012
+I: CS Subevent end
 I: CS Subevent result received:
 I:  - Procedure counter: 26
 I:  - Procedure done status: 0
@@ -1830,6 +1856,7 @@ I: Raw step data:
   09008c70070088d00720024109001bf1
   00001c410120020d09002760f70032a0
   f720
+I: CS Subevent end
 I: CS Subevent result received:
 I:  - Procedure counter: 27
 I:  - Procedure done status: 0
@@ -1897,6 +1924,7 @@ I: Raw step data:
   090057bff7000230ff1202250900641f
   fe0065dffd20021c0900abcff900fb8f
   ff12
+I: CS Subevent end
 I: CS Subevent result received:
 I:  - Procedure counter: 28
 I:  - Procedure done status: 0
@@ -1964,6 +1992,7 @@ I: Raw step data:
   090021bfff0020bfff2002160900b92f
   f900fd6f0012022b0900e6bff200f4bf
   ff12
+I: CS Subevent end
 I: CS Subevent result received:
 I:  - Procedure counter: 29
 I:  - Procedure done status: 0
@@ -2031,6 +2060,7 @@ I: Raw step data:
   0900986f030006e0ff1202430900a5c0
   0900aa80092002100900395005003670
   0520
+I: CS Subevent end
 I: CS Subevent result received:
 I:  - Procedure counter: 30
 I:  - Procedure done status: 0
@@ -2098,6 +2128,7 @@ I: Raw step data:
   0900ff8f0900f71f0012020c09006680
   fd006820fe2002470900e0d00300fb5f
   ff12
+I: CS Subevent end
 I: CS Subevent result received:
 I:  - Procedure counter: 31
 I:  - Procedure done status: 0
@@ -2165,6 +2196,7 @@ I: Raw step data:
   0900f230fd00f560fd20020b09007fa0
   03000470001202440900127f0a00fa1f
   ff12
+I: CS Subevent end
 I: CS Subevent result received:
 I:  - Procedure counter: 32
 I:  - Procedure done status: 0
@@ -2232,6 +2264,7 @@ I: Raw step data:
   0900445f0b0030ef0920022a09001e10
   1100f2efff12022c09001011fc001101
   fd20
+I: CS Subevent end
 I: CS Subevent result received:
 I:  - Procedure counter: 33
 I:  - Procedure done status: 0
@@ -2299,6 +2332,7 @@ I: Raw step data:
   09004150f300f65f01120228090096c0
   fb0008100012022a09009adff700a35f
   f720
+I: CS Subevent end
 I: CS Subevent result received:
 I:  - Procedure counter: 34
 I:  - Procedure done status: 0
@@ -2366,6 +2400,7 @@ I: Raw step data:
   090028b00d00f2efff1202080900cbef
   0600ff8f0012021d09004010f800fa7f
   0012
+I: CS Subevent end
 I: CS Subevent result received:
 I:  - Procedure counter: 35
 I:  - Procedure done status: 0
@@ -2433,6 +2468,7 @@ I: Raw step data:
   0900972f0c0008700012021009005640
   030004300012024a0900542f0c000a80
   0012
+I: CS Subevent end
 I: CS Subevent result received:
 I:  - Procedure counter: 36
 I:  - Procedure done status: 0
@@ -2446,6 +2482,7 @@ I:  - Step data buffer length: 18 bytes
 I: Raw step data:
   004503027f01002303027f0100100302
   7f01
+I: CS Subevent end
 I: CS Subevent result received:
 I:  - Procedure counter: 37
 I:  - Procedure done status: 0
@@ -2513,6 +2550,7 @@ I: Raw step data:
   0900d2b0fc00f23f0012021f09003ce0
   0600f94f0012022b0900bd3ff800fb8f
   ff12
+I: CS Subevent end
 I: CS Subevent result received:
 I:  - Procedure counter: 38
 I:  - Procedure done status: 0
@@ -2580,6 +2618,7 @@ I: Raw step data:
   09008a40fd0006700012022a0900b3cf
   0400fbbfff12022f09005e000400f9ef
   ff12
+I: CS Subevent end
 I: CS Subevent result received:
 I:  - Procedure counter: 39
 I:  - Procedure done status: 0
@@ -2647,6 +2686,7 @@ I: Raw step data:
   0900583f050056ff042002470900b4f0
   100010b0001202110900935f04008fef
   0320
+I: CS Subevent end
 I: CS Subevent result received:
 I:  - Procedure counter: 40
 I:  - Procedure done status: 0
@@ -2714,6 +2754,7 @@ I: Raw step data:
   090001f00b00f60f0c20023e09007b7f
   100007c000120216090062a0fb0064c0
   fb20
+I: CS Subevent end
 I: CS Subevent result received:
 I:  - Procedure counter: 41
 I:  - Procedure done status: 0
@@ -2781,6 +2822,7 @@ I: Raw step data:
   0900d970fa00f34f0012021d09005b90
   fa00fe8fff1202020900a16ffa000170
   0012
+I: CS Subevent end
 I: CS Subevent result received:
 I:  - Procedure counter: 42
 I:  - Procedure done status: 0
@@ -2848,6 +2890,7 @@ I: Raw step data:
   0900a24f0c009b0f0c20023e0900cf4f
   1400d65f142002420900a19efc00a07e
   fc20
+I: CS Subevent end
 I: CS Subevent result received:
 I:  - Procedure counter: 43
 I:  - Procedure done status: 0
@@ -2915,6 +2958,7 @@ I: Raw step data:
   09006c80f90070c0f92002290900a5a0
   030009300012023e0900e8b0fc00eb70
   fd20
+I: CS Subevent end
 I: CS Subevent result received:
 I:  - Procedure counter: 44
 I:  - Procedure done status: 0
@@ -2982,6 +3026,7 @@ I: Raw step data:
   0900a14ffb00fb9fff12020f0900caef
   0500c9ef0520021d09006a20ff006aa0
   ff20
+I: CS Subevent end
 I: CS Subevent result received:
 I:  - Procedure counter: 45
 I:  - Procedure done status: 0
@@ -3049,6 +3094,7 @@ I: Raw step data:
   090078800d006af00d200244090036c0
   f0004c10f120023309001bd00c000bf0
   0c20
+I: CS Subevent end
 I: CS Subevent result received:
 I:  - Procedure counter: 46
 I:  - Procedure done status: 0
@@ -3116,6 +3162,7 @@ I: Raw step data:
   09008410fa008620fa200244090082a0
   f80009000012020d090064f0fa006820
   fb20
+I: CS Subevent end
 I: CS Subevent result received:
 I:  - Procedure counter: 47
 I:  - Procedure done status: 0
@@ -3183,6 +3230,7 @@ I: Raw step data:
   090021f007000690ff12024109005a60
   f6005a60f62002230900781f0100fc8f
   ff12
+I: CS Subevent end
 I: CS Subevent result received:
 I:  - Procedure counter: 48
 I:  - Procedure done status: 0
@@ -3250,6 +3298,7 @@ I: Raw step data:
   09007c700000f71f0012022109008da0
   fe000920001202340900644f030000a0
   0012
+I: CS Subevent end
 I: CS Subevent result received:
 I:  - Procedure counter: 49
 I:  - Procedure done status: 0
@@ -3317,6 +3366,7 @@ I: Raw step data:
   0900cb5f0800c53f0820021509006500
   0300627003200226090056800500fb9f
   ff12
+I: CS Subevent end
 I: CS Subevent result received:
 I:  - Procedure counter: 50
 I:  - Procedure done status: 0
@@ -3384,6 +3434,7 @@ I: Raw step data:
   0900a26f05009f2f05200231090047c0
   0c0041d00c2002100900db6ff900e33f
   f920
+I: CS Subevent end
 I: CS Subevent result received:
 I:  - Procedure counter: 51
 I:  - Procedure done status: 0
@@ -3451,6 +3502,7 @@ I: Raw step data:
   0900a0300700f96fff12020909002800
   060006d0ff120227090014f0090007e0
   0920
+I: CS Subevent end
 I: CS Subevent result received:
 I:  - Procedure counter: 52
 I:  - Procedure done status: 0
@@ -3518,6 +3570,7 @@ I: Raw step data:
   0900cbaff90003500012023f0900aa4f
   0c00f44f001202400900d9d0ff00d9a0
   0020
+I: CS Subevent end
 I: CS Subevent result received:
 I:  - Procedure counter: 53
 I:  - Procedure done status: 0
@@ -3585,6 +3638,7 @@ I: Raw step data:
   0900a630fe00fb8fff12021309004e10
   0300fa2f0012022d090084900500ff7f
   ff12
+I: CS Subevent end
 I: CS Subevent result received:
 I:  - Procedure counter: 54
 I:  - Procedure done status: 0
@@ -3652,6 +3706,7 @@ I: Raw step data:
   0900951f00010c20001202150900a98f
   fd000190ff1202280900905007008e80
   0720
+I: CS Subevent end
 I: CS Subevent result received:
 I:  - Procedure counter: 55
 I:  - Procedure done status: 0
@@ -3719,6 +3774,7 @@ I: Raw step data:
   090075900b0007900012024c0900c580
   0c00f1cfff12022d0900337f0400f9af
   0012
+I: CS Subevent end
 I: CS Subevent result received:
 I:  - Procedure counter: 56
 I:  - Procedure done status: 0
@@ -3786,6 +3842,7 @@ I: Raw step data:
   09004ddf060045ef05200223090080cf
   0300f6ffff1202490900bdb0f9000850
   ff12
+I: CS Subevent end
 I: CS Subevent result received:
 I:  - Procedure counter: 57
 I:  - Procedure done status: 0
@@ -3853,6 +3910,7 @@ I: Raw step data:
   090051800400fa4f0012021d09006d20
   fe006d10fe200241090002f0f100f60f
   f220
+I: CS Subevent end
 I: CS Subevent result received:
 I:  - Procedure counter: 58
 I:  - Procedure done status: 0
@@ -3920,6 +3978,7 @@ I: Raw step data:
   0900f34ff1000970ff1202460900122f
   04000e4f0320020b0900e85f0300fc2f
   0012
+I: CS Subevent end
 I: CS Subevent result received:
 I:  - Procedure counter: 59
 I:  - Procedure done status: 0
@@ -3987,6 +4046,7 @@ I: Raw step data:
   0900080f01000af0001202470900c061
   f100ca71f220023d0900cf9e1200eaef
   0012
+I: CS Subevent end
 I: CS Subevent result received:
 I:  - Procedure counter: 60
 I:  - Procedure done status: 0
@@ -4054,6 +4114,7 @@ I: Raw step data:
   090077b1fe007801002002340900d0fe
   0600c9de0520023109001e91fb00f2af
   ff12
+I: CS Subevent end
 I: CS Subevent result received:
 I:  - Procedure counter: 61
 I:  - Procedure done status: 0
@@ -4121,6 +4182,7 @@ I: Raw step data:
   090004c0fc0003c0fc20021f0900c59f
   0200fb2f001202110900fb1f0100fb0f
   0120
+I: CS Subevent end
 I: CS Subevent result received:
 I:  - Procedure counter: 62
 I:  - Procedure done status: 0
@@ -4188,6 +4250,7 @@ I: Raw step data:
   0900fe8ff9001060ff12020809002380
   fe0025a0fe20022e0900e5fff700e7df
   f720
+I: CS Subevent end
 I: CS Subevent result received:
 I:  - Procedure counter: 63
 I:  - Procedure done status: 0
@@ -4255,6 +4318,7 @@ I: Raw step data:
   090072d0fa00037000120230090091af
   fb00962ffb20022b0900ec0f0700fc9f
   ff12
+I: CS Subevent end
 I: CS Subevent result received:
 I:  - Procedure counter: 64
 I:  - Procedure done status: 0
@@ -4322,6 +4386,7 @@ I: Raw step data:
   090005500200fd2f001202140900f21f
   fe00fe2f001202370900452f05000680
   0012
+I: CS Subevent end
 I: CS Subevent result received:
 I:  - Procedure counter: 65
 I:  - Procedure done status: 0
@@ -4335,6 +4400,7 @@ I:  - Step data buffer length: 18 bytes
 I: Raw step data:
   002e03027f01002f03027f0100160302
   7f01
+I: CS Subevent end
 I: CS Subevent result received:
 I:  - Procedure counter: 66
 I:  - Procedure done status: 0
@@ -4348,6 +4414,7 @@ I:  - Step data buffer length: 18 bytes
 I: Raw step data:
   002203027f01000203027f0100140302
   7f01
+I: CS Subevent end
 I: CS Subevent result received:
 I:  - Procedure counter: 67
 I:  - Procedure done status: 0
@@ -4361,6 +4428,7 @@ I:  - Step data buffer length: 18 bytes
 I: Raw step data:
   001403027f01004a03027f01000a0302
   7f01
+I: CS Subevent end
 I: CS Subevent result received:
 I:  - Procedure counter: 68
 I:  - Procedure done status: 0
@@ -4370,6 +4438,7 @@ I:  - Subevent abort reason: 3
 I:  - Reference power level: 0
 I:  - Num antenna paths: 1
 I:  - Num steps reported: 0
+I: CS Subevent end
 I: CS Subevent result received:
 I:  - Procedure counter: 69
 I:  - Procedure done status: 0
@@ -4383,6 +4452,7 @@ I:  - Step data buffer length: 18 bytes
 I: Raw step data:
   000603027f01000e03027f01001b0302
   7f01
+I: CS Subevent end
 I: CS Subevent result received:
 I:  - Procedure counter: 70
 I:  - Procedure done status: 0
@@ -4396,6 +4466,7 @@ I:  - Step data buffer length: 18 bytes
 I: Raw step data:
   000503027f01002203027f0100470302
   7f01
+I: CS Subevent end
 I: CS Subevent result received:
 I:  - Procedure counter: 71
 I:  - Procedure done status: 0
