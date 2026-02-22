@@ -9,11 +9,6 @@ class CSDataProcessor:
         with open(filepath) as f:
             return self._process_text(f.read())
 
-    def process_uart(self, port):
-        # Stream and accumulate
-        # TODO: implement reading from device port
-        pass
-
     def _process_text(self, text: str) -> List[Optional[SubeventResults]]:
         """Extract CS Subevent blocks and parse them.
 
@@ -25,10 +20,7 @@ class CSDataProcessor:
         """
         subevents = []
 
-        # Split text by "CS Subevent result received:" marker
-        # Keep the marker in each block by using positive lookahead
         pattern = r'(?=I: CS Subevent result received:)'
-        # TODO: add marker at the end to make parsing easier
         blocks = re.split(pattern, text)
 
         for block in blocks:
