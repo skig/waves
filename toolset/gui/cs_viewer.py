@@ -27,6 +27,9 @@ class CSViewer:
         self.live_phase_slope: Optional[Dict[int, float]] = None
         self.live_rssi_ini: Optional[Dict[int, float]] = None
         self.live_rssi_ref: Optional[Dict[int, float]] = None
+        self.gui_refresh_interval_ms = 100
+        self._live_render_scheduled = False
+        self._pending_live_counter: Optional[int] = None
         self._all_counters_cache = set()
 
         all_counters = sorted(set(self.initiator_map.keys()) | set(self.reflector_map.keys()))
@@ -154,6 +157,7 @@ class CSViewer:
 
             self._update_phase_plot(phase_slope_data)
             self._update_rssi_plot(rssi_ini_data, rssi_ref_data)
+            self.canvas.draw_idle()
 
         except Exception as e:
             print(f"[ERROR] Exception in _update_display: {type(e).__name__}: {e}")
@@ -180,10 +184,26 @@ class CSViewer:
                 self.counter_spinbox.config(from_=min(all_counters), to=max(all_counters))
 
             if self.live_mode:
-                self.counter_var.set(initiator.procedure_counter)
-                self._update_display()
+                self._pending_live_counter = initiator.procedure_counter
+                if not self._live_render_scheduled:
+                    self._live_render_scheduled = True
+                    self.root.after(self.gui_refresh_interval_ms, self._flush_live_render)
 
         self.root.after(0, _update)
+
+    def _flush_live_render(self):
+        """Render latest live data at most once per refresh interval."""
+        self._live_render_scheduled = False
+
+        if not self.live_mode:
+            return
+
+        counter = self._pending_live_counter
+        if counter is None:
+            return
+
+        self.counter_var.set(counter)
+        self._update_display()
 
     def _get_subevent_info(self, subevent):
         """Generate info string for a subevent"""
@@ -210,8 +230,6 @@ class CSViewer:
             phases = [phase_slope_data[ch] for ch in sorted_channels]
 
             self.ax_phase.bar(sorted_channels, phases, color='steelblue', width=0.6)
-
-        self.canvas.draw()
 
     def _update_rssi_plot(self, rssi_ini_data: Optional[Dict[int, float]], rssi_ref_data: Optional[Dict[int, float]]):
         """Update the RSSI plot"""
@@ -242,8 +260,6 @@ class CSViewer:
 
         if has_data:
             self.ax_rssi.legend()
-
-        self.canvas.draw()
 
     def run(self):
         """Start the GUI event loop"""
