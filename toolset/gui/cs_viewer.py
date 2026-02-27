@@ -2,9 +2,9 @@ import tkinter as tk
 from tkinter import ttk
 from typing import List, Optional, Callable, Dict
 from toolset.cs_utils.cs_subevent import SubeventResults
-import matplotlib.pyplot as plt
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 from matplotlib.figure import Figure
+from matplotlib.container import BarContainer
 
 
 class CSViewer:
@@ -31,6 +31,18 @@ class CSViewer:
         self._live_render_scheduled = False
         self._pending_live_counter: Optional[int] = None
         self._all_counters_cache = set()
+        self._phase_channels: tuple[int, ...] = ()
+        self._rssi_ini_channels: tuple[int, ...] = ()
+        self._rssi_ref_channels: tuple[int, ...] = ()
+        self._phase_bars: Optional[BarContainer] = None
+        self._rssi_ini_bars: Optional[BarContainer] = None
+        self._rssi_ref_bars: Optional[BarContainer] = None
+        self._blit_background_phase = None
+        self._blit_background_rssi = None
+        self._force_full_redraw = True
+        self._phase_ylim = (-1.0, 1.0)
+        self._rssi_ylim = (-1.0, 1.0)
+        self._bar_width = 0.35
 
         all_counters = sorted(set(self.initiator_map.keys()) | set(self.reflector_map.keys()))
 
@@ -100,6 +112,9 @@ class CSViewer:
         self.canvas = FigureCanvasTkAgg(self.fig, master=main_frame)
         self.canvas.get_tk_widget().grid(row=5, column=0, columnspan=3, sticky=(tk.W, tk.E, tk.N, tk.S), pady=10)
 
+        self._initialize_plot_artists()
+        self.canvas.mpl_connect('draw_event', self._on_canvas_draw)
+
         main_frame.rowconfigure(5, weight=1)
         main_frame.columnconfigure(2, weight=1)
 
@@ -107,6 +122,25 @@ class CSViewer:
         self.root.columnconfigure(0, weight=1)
 
         self._update_display()
+
+    def _initialize_plot_artists(self):
+        self._phase_bars = self.ax_phase.bar([], [], color='steelblue', width=0.6, animated=True)
+        self._rssi_ini_bars = self.ax_rssi.bar([], [], width=self._bar_width,
+                                              color='blue', label='Initiator', alpha=0.8, animated=True)
+        self._rssi_ref_bars = self.ax_rssi.bar([], [], width=self._bar_width,
+                                              color='red', label='Reflector', alpha=0.8, animated=True)
+        self.ax_rssi.legend()
+        self._force_full_redraw = True
+
+    def _on_canvas_draw(self, _event):
+        if not self._supports_blit():
+            return
+        self._blit_background_phase = self.canvas.copy_from_bbox(self.ax_phase.bbox)
+        self._blit_background_rssi = self.canvas.copy_from_bbox(self.ax_rssi.bbox)
+        self._force_full_redraw = False
+
+    def _supports_blit(self) -> bool:
+        return bool(getattr(self.canvas, 'supports_blit', False))
 
     def _on_live_toggled(self):
         """Handle live mode checkbox toggle"""
@@ -157,7 +191,7 @@ class CSViewer:
 
             self._update_phase_plot(phase_slope_data)
             self._update_rssi_plot(rssi_ini_data, rssi_ref_data)
-            self.canvas.draw_idle()
+            self._render_plots()
 
         except Exception as e:
             print(f"[ERROR] Exception in _update_display: {type(e).__name__}: {e}")
@@ -219,47 +253,159 @@ class CSViewer:
 
     def _update_phase_plot(self, phase_slope_data: Optional[Dict[int, float]]):
         """Update the phase slope plot"""
-        self.ax_phase.clear()
-        self.ax_phase.set_xlabel('Channel Index')
-        self.ax_phase.set_ylabel('Sum of Phases')
-        self.ax_phase.set_title('Phase Slope')
-        self.ax_phase.grid(True)
-
         if phase_slope_data and len(phase_slope_data) > 0:
-            sorted_channels = sorted(phase_slope_data.keys())
+            sorted_channels = tuple(sorted(phase_slope_data.keys()))
             phases = [phase_slope_data[ch] for ch in sorted_channels]
+        else:
+            sorted_channels = ()
+            phases = []
 
-            self.ax_phase.bar(sorted_channels, phases, color='steelblue', width=0.6)
+        if sorted_channels != self._phase_channels:
+            if self._phase_bars is not None:
+                self._phase_bars.remove()
+            self._phase_bars = self.ax_phase.bar(sorted_channels, phases, color='steelblue', width=0.6, animated=True)
+            self._phase_channels = sorted_channels
+            self._force_full_redraw = True
+        else:
+            if self._phase_bars is not None:
+                for bar, value in zip(self._phase_bars.patches, phases):
+                    bar.set_height(value)
+
+        self._update_phase_limits(sorted_channels, phases)
 
     def _update_rssi_plot(self, rssi_ini_data: Optional[Dict[int, float]], rssi_ref_data: Optional[Dict[int, float]]):
         """Update the RSSI plot"""
-        self.ax_rssi.clear()
-        self.ax_rssi.set_xlabel('Channel Index')
-        self.ax_rssi.set_ylabel('RSSI Magnitude')
-        self.ax_rssi.set_title('RSSI Values')
-        self.ax_rssi.grid(True)
+        ini_channels = tuple(sorted(rssi_ini_data.keys())) if rssi_ini_data else ()
+        ref_channels = tuple(sorted(rssi_ref_data.keys())) if rssi_ref_data else ()
+        ini_values = [rssi_ini_data[ch] for ch in ini_channels] if rssi_ini_data else []
+        ref_values = [rssi_ref_data[ch] for ch in ref_channels] if rssi_ref_data else []
 
-        has_data = False
-        bar_width = 0.35
+        if ini_channels != self._rssi_ini_channels:
+            if self._rssi_ini_bars is not None:
+                self._rssi_ini_bars.remove()
+            ini_positions = [ch - self._bar_width / 2 for ch in ini_channels]
+            self._rssi_ini_bars = self.ax_rssi.bar(ini_positions, ini_values, width=self._bar_width,
+                                                   color='blue', label='Initiator', alpha=0.8, animated=True)
+            self._rssi_ini_channels = ini_channels
+            self._force_full_redraw = True
+        else:
+            if self._rssi_ini_bars is not None:
+                for bar, value in zip(self._rssi_ini_bars.patches, ini_values):
+                    bar.set_height(value)
 
-        if rssi_ini_data and len(rssi_ini_data) > 0:
-            sorted_channels = sorted(rssi_ini_data.keys())
-            rssi_values = [rssi_ini_data[ch] for ch in sorted_channels]
-            positions = [ch - bar_width/2 for ch in sorted_channels]
-            self.ax_rssi.bar(positions, rssi_values, width=bar_width,
-                           color='blue', label='Initiator', alpha=0.8)
-            has_data = True
+        if ref_channels != self._rssi_ref_channels:
+            if self._rssi_ref_bars is not None:
+                self._rssi_ref_bars.remove()
+            ref_positions = [ch + self._bar_width / 2 for ch in ref_channels]
+            self._rssi_ref_bars = self.ax_rssi.bar(ref_positions, ref_values, width=self._bar_width,
+                                                   color='red', label='Reflector', alpha=0.8, animated=True)
+            self._rssi_ref_channels = ref_channels
+            self._force_full_redraw = True
+        else:
+            if self._rssi_ref_bars is not None:
+                for bar, value in zip(self._rssi_ref_bars.patches, ref_values):
+                    bar.set_height(value)
 
-        if rssi_ref_data and len(rssi_ref_data) > 0:
-            sorted_channels = sorted(rssi_ref_data.keys())
-            rssi_values = [rssi_ref_data[ch] for ch in sorted_channels]
-            positions = [ch + bar_width/2 for ch in sorted_channels]
-            self.ax_rssi.bar(positions, rssi_values, width=bar_width,
-                           color='red', label='Reflector', alpha=0.8)
-            has_data = True
+        self._update_rssi_limits(ini_channels, ini_values, ref_channels, ref_values)
 
-        if has_data:
-            self.ax_rssi.legend()
+    def _update_phase_limits(self, channels: tuple[int, ...], values: List[float]):
+        if channels:
+            x_min = min(channels) - 0.8
+            x_max = max(channels) + 0.8
+            min_value = min(values) if values else -1.0
+            max_value = max(values) if values else 1.0
+            y_pad = max(0.5, (max_value - min_value) * 0.1)
+            y_min = min(min_value - y_pad, 0.0)
+            y_max = max(max_value + y_pad, 0.0)
+            if y_min == y_max:
+                y_min -= 1.0
+                y_max += 1.0
+        else:
+            x_min, x_max = -1.0, 1.0
+            y_min, y_max = -1.0, 1.0
+
+        new_ylim = (y_min, y_max)
+        if self.ax_phase.get_xlim() != (x_min, x_max):
+            self.ax_phase.set_xlim(x_min, x_max)
+            self._force_full_redraw = True
+        if self._phase_ylim != new_ylim:
+            self.ax_phase.set_ylim(*new_ylim)
+            self._phase_ylim = new_ylim
+            self._force_full_redraw = True
+
+    def _update_rssi_limits(
+        self,
+        ini_channels: tuple[int, ...],
+        ini_values: List[float],
+        ref_channels: tuple[int, ...],
+        ref_values: List[float]
+    ):
+        channels = [*ini_channels, *ref_channels]
+        values = [*ini_values, *ref_values]
+        if channels:
+            x_min = min(channels) - 0.8
+            x_max = max(channels) + 0.8
+            min_value = min(values) if values else -1.0
+            max_value = max(values) if values else 1.0
+            y_pad = max(0.5, (max_value - min_value) * 0.1)
+            y_min = min(min_value - y_pad, 0.0)
+            y_max = max(max_value + y_pad, 0.0)
+            if y_min == y_max:
+                y_min -= 1.0
+                y_max += 1.0
+        else:
+            x_min, x_max = -1.0, 1.0
+            y_min, y_max = -1.0, 1.0
+
+        new_ylim = (y_min, y_max)
+        if self.ax_rssi.get_xlim() != (x_min, x_max):
+            self.ax_rssi.set_xlim(x_min, x_max)
+            self._force_full_redraw = True
+        if self._rssi_ylim != new_ylim:
+            self.ax_rssi.set_ylim(*new_ylim)
+            self._rssi_ylim = new_ylim
+            self._force_full_redraw = True
+
+    def _render_plots(self):
+        if self._force_full_redraw or not self._supports_blit() or self._blit_background_phase is None or self._blit_background_rssi is None:
+            self.canvas.draw()
+            if self._supports_blit() and self._blit_background_phase is not None and self._blit_background_rssi is not None:
+                self.canvas.restore_region(self._blit_background_phase)
+                self.canvas.restore_region(self._blit_background_rssi)
+
+                if self._phase_bars is not None:
+                    for patch in self._phase_bars.patches:
+                        self.ax_phase.draw_artist(patch)
+
+                if self._rssi_ini_bars is not None:
+                    for patch in self._rssi_ini_bars.patches:
+                        self.ax_rssi.draw_artist(patch)
+
+                if self._rssi_ref_bars is not None:
+                    for patch in self._rssi_ref_bars.patches:
+                        self.ax_rssi.draw_artist(patch)
+
+                self.canvas.blit(self.ax_phase.bbox)
+                self.canvas.blit(self.ax_rssi.bbox)
+            return
+
+        self.canvas.restore_region(self._blit_background_phase)
+        self.canvas.restore_region(self._blit_background_rssi)
+
+        if self._phase_bars is not None:
+            for patch in self._phase_bars.patches:
+                self.ax_phase.draw_artist(patch)
+
+        if self._rssi_ini_bars is not None:
+            for patch in self._rssi_ini_bars.patches:
+                self.ax_rssi.draw_artist(patch)
+
+        if self._rssi_ref_bars is not None:
+            for patch in self._rssi_ref_bars.patches:
+                self.ax_rssi.draw_artist(patch)
+
+        self.canvas.blit(self.ax_phase.bbox)
+        self.canvas.blit(self.ax_rssi.bbox)
 
     def run(self):
         """Start the GUI event loop"""
