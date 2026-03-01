@@ -35,6 +35,15 @@ class ToneQualityIndicator(IntEnum):
     TONE_QUALITY_LOW = 0x02
     TONE_QUALITY_UNAVAILABLE = 0x03
 
+    def short_description(self) -> str:
+        if self == ToneQualityIndicator.TONE_QUALITY_HIGH:
+            return "High"
+        if self == ToneQualityIndicator.TONE_QUALITY_MEDIUM:
+            return "Medium"
+        if self == ToneQualityIndicator.TONE_QUALITY_LOW:
+            return "Low"
+        return "Not available"
+
 class ToneQualityIndicatorExtensionSlot(IntEnum):
     NOT_TONE_EXTENSION_SLOT = 0x00
     TONE_EXTENSION_NOT_EXPECTED = 0x01
@@ -50,7 +59,7 @@ class ToneData:
 
     def __str__(self):
         if self.quality_extension_slot != ToneQualityIndicatorExtensionSlot.TONE_EXTENSION_NOT_EXPECTED:
-            return f"Tone (I:{self.pct_i} Q:{self.pct_q} Mag: {sqrt(self.pct_i ** 2 + self.pct_q ** 2):.2f}, Phase: {atan2(self.pct_q, self.pct_i):.2f})"
+            return f"Tone (I:{self.pct_i} Q:{self.pct_q} Mag: {sqrt(self.pct_i ** 2 + self.pct_q ** 2):.2f}, Phase: {atan2(self.pct_q, self.pct_i):.2f}, Quality: {self.quality.short_description()})"
         else:
             return f"Empty extension slot (Mag: {sqrt(self.pct_i ** 2 + self.pct_q ** 2):.2f})"
 
