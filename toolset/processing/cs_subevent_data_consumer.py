@@ -3,7 +3,7 @@
 from queue import Queue
 from typing import Dict, Tuple, Optional, Callable
 from toolset.cs_utils.cs_subevent import SubeventResults
-from toolset.processing.cs_channel_ifft import calculate_channel_ifft_data
+from toolset.processing.cs_channel_ifft import calculate_channel_ifft_data, calculate_music_spectrum_data
 from toolset.processing.cs_phase_slope import calculate_phase_slope_data
 from toolset.processing.cs_rssi_calc import calculate_rssi_data
 
@@ -82,6 +82,15 @@ def process_coupled_subevents(initiator: SubeventResults, reflector: SubeventRes
     phase_slope_data = calculate_phase_slope_data(initiator, reflector)
     rssi_data_ini, rssi_data_ref = calculate_rssi_data(initiator, reflector)
     channel_ifft_data = calculate_channel_ifft_data(initiator, reflector)
+    music_spectrum_data = calculate_music_spectrum_data(initiator, reflector)
 
     if gui_callback:
-        gui_callback(initiator, reflector, phase_slope_data, rssi_data_ini, rssi_data_ref, channel_ifft_data)
+        gui_callback(
+            initiator,
+            reflector,
+            phase_slope_data,
+            rssi_data_ini,
+            rssi_data_ref,
+            channel_ifft_data,
+            music_spectrum_data,
+        )

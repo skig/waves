@@ -1,5 +1,7 @@
+from math import cos, pi, sin
+
 from toolset.cs_utils import cs_step, cs_subevent
-from toolset.processing.cs_channel_ifft import calculate_channel_ifft_data
+from toolset.processing.cs_channel_ifft import calculate_channel_ifft_data, calculate_music_spectrum_data
 
 
 def _build_subevent_with_mode2_steps(procedure_counter: int, mode2_steps: list[cs_step.CSStepMode2]) -> cs_subevent.SubeventResults:
@@ -67,3 +69,34 @@ class TestChannelIfft:
         ifft_data = calculate_channel_ifft_data(initiator, reflector)
 
         assert ifft_data == {}
+
+
+class TestMusicSpectrum:
+    def test_music_peak_matches_expected_delay(self):
+        channel_count = 16
+        channel_spacing_hz = 1_000_000.0
+        target_delay_us = 0.25
+        target_delay_s = target_delay_us * 1e-6
+        amplitude = 1000
+
+        initiator_steps = []
+        reflector_steps = []
+
+        for channel in range(channel_count):
+            phase = -2.0 * pi * channel * channel_spacing_hz * target_delay_s
+            i_value = int(round(amplitude * cos(phase)))
+            q_value = int(round(amplitude * sin(phase)))
+            initiator_steps.append(_mode2_step(channel=channel, i_value=i_value, q_value=q_value))
+            reflector_steps.append(_mode2_step(channel=channel, i_value=1, q_value=0))
+
+        initiator = _build_subevent_with_mode2_steps(procedure_counter=3, mode2_steps=initiator_steps)
+        reflector = _build_subevent_with_mode2_steps(procedure_counter=3, mode2_steps=reflector_steps)
+
+        spectrum = calculate_music_spectrum_data(initiator, reflector, channel_spacing_hz=channel_spacing_hz, spectrum_points=256)
+
+        assert spectrum
+        assert abs(max(spectrum.values()) - 1.0) < 1e-9
+
+        peak_bin = max(spectrum, key=spectrum.get)
+        peak_delay_us = (peak_bin / 256) * (1.0 / channel_spacing_hz) * 1e6
+        assert abs(peak_delay_us - target_delay_us) < 0.03
