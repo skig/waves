@@ -1,11 +1,11 @@
 # waves
-ble channel sounding tones analysis tool
+BLE Channel Sounding tones analysis tool
 
 ## Current status
 
-WIP
-
-ETA of MVP: end of Feb. 2026
+As of now the tool contains:
+- CS Initiator and Reflector samples based on Nordic Semiconductor Connect SDK 3.2.2. The samples perform channel sounding procedure and log raw CS data through UART to a PC.
+- Python toolset with GUI parsing samples UART output and performing basic processing of the data, such as calculating magnitude and phase shift of each step and printing the statictics of the measurements.
 
 TODO:
 - phase unwrapping
