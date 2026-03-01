@@ -27,6 +27,7 @@ class CSViewer:
         self.phase_slope_map: Dict[int, Dict[int, float]] = {}
         self.rssi_ini_map: Dict[int, Dict[int, float]] = {}
         self.rssi_ref_map: Dict[int, Dict[int, float]] = {}
+        self.channel_ifft_map: Dict[int, Dict[int, float]] = {}
 
         self.live_mode = True
         self.live_initiator: Optional[SubeventResults] = None
@@ -34,6 +35,7 @@ class CSViewer:
         self.live_phase_slope: Optional[Dict[int, float]] = None
         self.live_rssi_ini: Optional[Dict[int, float]] = None
         self.live_rssi_ref: Optional[Dict[int, float]] = None
+        self.live_channel_ifft: Optional[Dict[int, float]] = None
         self.gui_refresh_interval_ms = 100
         self._live_render_scheduled = False
         self._pending_live_counter: Optional[int] = None
@@ -41,15 +43,20 @@ class CSViewer:
         self._phase_channels: tuple[int, ...] = ()
         self._rssi_ini_channels: tuple[int, ...] = ()
         self._rssi_ref_channels: tuple[int, ...] = ()
+        self._ifft_bins: tuple[int, ...] = ()
         self._phase_bars: Optional[BarContainer] = None
         self._rssi_ini_bars: Optional[BarContainer] = None
         self._rssi_ref_bars: Optional[BarContainer] = None
+        self._ifft_bars: Optional[BarContainer] = None
         self._blit_background_phase = None
         self._blit_background_rssi = None
+        self._blit_background_ifft = None
         self._force_full_redraw = True
         self._phase_ylim = (-1.0, 1.0)
         self._rssi_ylim = (-1.0, 1.0)
+        self._ifft_ylim = (-1.0, 1.0)
         self._bar_width = 0.35
+        self._channel_spacing_hz = 1_000_000.0
 
         all_counters = sorted(set(self.initiator_map.keys()) | set(self.reflector_map.keys()))
 
@@ -103,18 +110,24 @@ class CSViewer:
 
         ttk.Separator(main_frame, orient='horizontal').grid(row=4, column=0, columnspan=3, sticky=(tk.W, tk.E), pady=15)
 
-        self.fig = Figure(figsize=(8, 8), dpi=100)
-        self.ax_phase = self.fig.add_subplot(211)
+        self.fig = Figure(figsize=(8, 10), dpi=100)
+        self.ax_phase = self.fig.add_subplot(311)
         self.ax_phase.set_xlabel('Channel Index')
         self.ax_phase.set_ylabel('Sum of Phases')
         self.ax_phase.set_title('Phase Slope')
         self.ax_phase.grid(True)
 
-        self.ax_rssi = self.fig.add_subplot(212)
+        self.ax_rssi = self.fig.add_subplot(312)
         self.ax_rssi.set_xlabel('Channel Index')
         self.ax_rssi.set_ylabel('RSSI Magnitude')
         self.ax_rssi.set_title('RSSI Values')
         self.ax_rssi.grid(True)
+
+        self.ax_ifft = self.fig.add_subplot(313)
+        self.ax_ifft.set_xlabel('Time Delay (µs)')
+        self.ax_ifft.set_ylabel('Magnitude')
+        self.ax_ifft.set_title('iFFT of Channel Response')
+        self.ax_ifft.grid(True)
 
         self.fig.tight_layout()
 
@@ -138,6 +151,7 @@ class CSViewer:
                                               color='blue', label='Initiator', alpha=0.8, animated=True)
         self._rssi_ref_bars = self.ax_rssi.bar([], [], width=self._bar_width,
                                               color='red', label='Reflector', alpha=0.8, animated=True)
+        self._ifft_bars = self.ax_ifft.bar([], [], color='purple', width=0.6, alpha=0.85, animated=True)
         self.ax_rssi.legend()
         self._force_full_redraw = True
 
@@ -146,6 +160,7 @@ class CSViewer:
             return
         self._blit_background_phase = self.canvas.copy_from_bbox(self.ax_phase.bbox)
         self._blit_background_rssi = self.canvas.copy_from_bbox(self.ax_rssi.bbox)
+        self._blit_background_ifft = self.canvas.copy_from_bbox(self.ax_ifft.bbox)
         self._force_full_redraw = False
 
     def _supports_blit(self) -> bool:
@@ -172,6 +187,7 @@ class CSViewer:
                 phase_slope_data = self.live_phase_slope
                 rssi_ini_data = self.live_rssi_ini
                 rssi_ref_data = self.live_rssi_ref
+                channel_ifft_data = self.live_channel_ifft
             else:
                 current_initiator = self.initiator_map.get(counter_value)
                 current_reflector = self.reflector_map.get(counter_value)
@@ -179,6 +195,7 @@ class CSViewer:
                 phase_slope_data = self.phase_slope_map.get(counter_value)
                 rssi_ini_data = self.rssi_ini_map.get(counter_value)
                 rssi_ref_data = self.rssi_ref_map.get(counter_value)
+                channel_ifft_data = self.channel_ifft_map.get(counter_value)
 
             self._set_text_widget(
                 self.initiator_stats_text,
@@ -191,6 +208,7 @@ class CSViewer:
 
             self._update_phase_plot(phase_slope_data)
             self._update_rssi_plot(rssi_ini_data, rssi_ref_data)
+            self._update_channel_ifft_plot(channel_ifft_data)
             self._render_plots()
 
         except Exception as e:
@@ -198,7 +216,7 @@ class CSViewer:
             import traceback
             traceback.print_exc()
 
-    def update_live_data(self, initiator: SubeventResults, reflector: SubeventResults, phase_slope_data: Dict[int, float], rssi_data_ini: Dict[int, float], rssi_data_ref: Dict[int, float]):
+    def update_live_data(self, initiator: SubeventResults, reflector: SubeventResults, phase_slope_data: Dict[int, float], rssi_data_ini: Dict[int, float], rssi_data_ref: Dict[int, float], channel_ifft_data: Dict[int, float]):
         """Update live data from consumer thread - thread-safe"""
         def _update():
             self.live_initiator = initiator
@@ -206,12 +224,14 @@ class CSViewer:
             self.live_phase_slope = phase_slope_data
             self.live_rssi_ini = rssi_data_ini
             self.live_rssi_ref = rssi_data_ref
+            self.live_channel_ifft = channel_ifft_data
 
             self.initiator_map[initiator.procedure_counter] = initiator
             self.reflector_map[reflector.procedure_counter] = reflector
             self.phase_slope_map[initiator.procedure_counter] = phase_slope_data
             self.rssi_ini_map[initiator.procedure_counter] = rssi_data_ini
             self.rssi_ref_map[initiator.procedure_counter] = rssi_data_ref
+            self.channel_ifft_map[initiator.procedure_counter] = channel_ifft_data
 
             all_counters = sorted(set(self.initiator_map.keys()) | set(self.reflector_map.keys()))
             if all_counters:
@@ -352,6 +372,43 @@ class CSViewer:
 
         self._update_rssi_limits(ini_channels, ini_values, ref_channels, ref_values)
 
+    def _update_channel_ifft_plot(self, channel_ifft_data: Optional[Dict[int, float]]):
+        """Update iFFT channel response plot"""
+        bins = tuple(sorted(channel_ifft_data.keys())) if channel_ifft_data else ()
+        magnitudes = [channel_ifft_data[b] for b in bins] if channel_ifft_data else []
+        times_us = self._convert_ifft_bins_to_time_us(bins)
+        bar_width = self._get_ifft_bar_width(times_us)
+
+        if bins != self._ifft_bins:
+            if self._ifft_bars is not None:
+                self._ifft_bars.remove()
+            self._ifft_bars = self.ax_ifft.bar(times_us, magnitudes, color='purple', width=bar_width, alpha=0.85, animated=True)
+            self._ifft_bins = bins
+            self._force_full_redraw = True
+        else:
+            if self._ifft_bars is not None:
+                for bar, value, x_pos in zip(self._ifft_bars.patches, magnitudes, times_us):
+                    bar.set_x(x_pos - (bar_width / 2.0))
+                    bar.set_width(bar_width)
+                    bar.set_height(value)
+
+        self._update_ifft_limits(times_us, magnitudes)
+
+    def _convert_ifft_bins_to_time_us(self, bins: tuple[int, ...]) -> tuple[float, ...]:
+        if not bins:
+            return ()
+
+        fft_size = len(bins)
+        sample_period_s = 1.0 / (fft_size * self._channel_spacing_hz)
+        return tuple((bin_index * sample_period_s * 1e6) for bin_index in bins)
+
+    def _get_ifft_bar_width(self, times_us: tuple[float, ...]) -> float:
+        if len(times_us) < 2:
+            return 0.1
+
+        bin_spacing_us = times_us[1] - times_us[0]
+        return max(bin_spacing_us * 0.8, 1e-6)
+
     def _update_phase_limits(self, channels: tuple[int, ...], values: List[float]):
         if channels:
             x_min = min(channels) - 0.8
@@ -410,12 +467,42 @@ class CSViewer:
             self._rssi_ylim = new_ylim
             self._force_full_redraw = True
 
+    def _update_ifft_limits(self, times_us: tuple[float, ...], magnitudes: List[float]):
+        if times_us:
+            if len(times_us) > 1:
+                half_step = (times_us[1] - times_us[0]) * 0.5
+            else:
+                half_step = 0.05
+            x_min = min(times_us) - half_step
+            x_max = max(times_us) + half_step
+            min_value = min(magnitudes) if magnitudes else -1.0
+            max_value = max(magnitudes) if magnitudes else 1.0
+            y_pad = max(0.5, (max_value - min_value) * 0.1)
+            y_min = min(min_value - y_pad, 0.0)
+            y_max = max(max_value + y_pad, 0.0)
+            if y_min == y_max:
+                y_min -= 1.0
+                y_max += 1.0
+        else:
+            x_min, x_max = -1.0, 1.0
+            y_min, y_max = -1.0, 1.0
+
+        new_ylim = (y_min, y_max)
+        if self.ax_ifft.get_xlim() != (x_min, x_max):
+            self.ax_ifft.set_xlim(x_min, x_max)
+            self._force_full_redraw = True
+        if self._ifft_ylim != new_ylim:
+            self.ax_ifft.set_ylim(*new_ylim)
+            self._ifft_ylim = new_ylim
+            self._force_full_redraw = True
+
     def _render_plots(self):
-        if self._force_full_redraw or not self._supports_blit() or self._blit_background_phase is None or self._blit_background_rssi is None:
+        if self._force_full_redraw or not self._supports_blit() or self._blit_background_phase is None or self._blit_background_rssi is None or self._blit_background_ifft is None:
             self.canvas.draw()
-            if self._supports_blit() and self._blit_background_phase is not None and self._blit_background_rssi is not None:
+            if self._supports_blit() and self._blit_background_phase is not None and self._blit_background_rssi is not None and self._blit_background_ifft is not None:
                 self.canvas.restore_region(self._blit_background_phase)
                 self.canvas.restore_region(self._blit_background_rssi)
+                self.canvas.restore_region(self._blit_background_ifft)
 
                 if self._phase_bars is not None:
                     for patch in self._phase_bars.patches:
@@ -429,12 +516,18 @@ class CSViewer:
                     for patch in self._rssi_ref_bars.patches:
                         self.ax_rssi.draw_artist(patch)
 
+                if self._ifft_bars is not None:
+                    for patch in self._ifft_bars.patches:
+                        self.ax_ifft.draw_artist(patch)
+
                 self.canvas.blit(self.ax_phase.bbox)
                 self.canvas.blit(self.ax_rssi.bbox)
+                self.canvas.blit(self.ax_ifft.bbox)
             return
 
         self.canvas.restore_region(self._blit_background_phase)
         self.canvas.restore_region(self._blit_background_rssi)
+        self.canvas.restore_region(self._blit_background_ifft)
 
         if self._phase_bars is not None:
             for patch in self._phase_bars.patches:
@@ -448,8 +541,13 @@ class CSViewer:
             for patch in self._rssi_ref_bars.patches:
                 self.ax_rssi.draw_artist(patch)
 
+        if self._ifft_bars is not None:
+            for patch in self._ifft_bars.patches:
+                self.ax_ifft.draw_artist(patch)
+
         self.canvas.blit(self.ax_phase.bbox)
         self.canvas.blit(self.ax_rssi.bbox)
+        self.canvas.blit(self.ax_ifft.bbox)
 
     def run(self):
         """Start the GUI event loop"""
