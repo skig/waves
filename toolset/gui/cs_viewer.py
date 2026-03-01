@@ -2,6 +2,13 @@ import tkinter as tk
 from tkinter import ttk
 from typing import List, Optional, Callable, Dict
 from toolset.cs_utils.cs_subevent import SubeventResults
+from toolset.cs_utils.cs_step import (
+    CSMode,
+    CSStepMode0,
+    CSStepMode2,
+    PacketQuality,
+    ToneQualityIndicator,
+)
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 from matplotlib.figure import Figure
 from matplotlib.container import BarContainer
@@ -84,13 +91,15 @@ class CSViewer:
 
         ttk.Separator(main_frame, orient='horizontal').grid(row=1, column=0, columnspan=3, sticky=(tk.W, tk.E), pady=15)
 
-        ttk.Label(main_frame, text="Initiator Steps:").grid(row=2, column=0, sticky=tk.W, pady=5)
-        self.initiator_steps_label = ttk.Label(main_frame, text="")
-        self.initiator_steps_label.grid(row=2, column=1, columnspan=2, sticky=tk.W, pady=5, padx=(10, 0))
+        ttk.Label(main_frame, text="Initiator Statistics:").grid(row=2, column=0, sticky=tk.NW, pady=5)
+        self.initiator_stats_text = tk.Text(main_frame, height=4, width=90, wrap='word')
+        self.initiator_stats_text.grid(row=2, column=1, columnspan=2, sticky=(tk.W, tk.E), pady=5, padx=(10, 0))
+        self.initiator_stats_text.config(state=tk.DISABLED)
 
-        ttk.Label(main_frame, text="Reflector Steps:").grid(row=3, column=0, sticky=tk.W, pady=5)
-        self.reflector_steps_label = ttk.Label(main_frame, text="")
-        self.reflector_steps_label.grid(row=3, column=1, columnspan=2, sticky=tk.W, pady=5, padx=(10, 0))
+        ttk.Label(main_frame, text="Reflector Statistics:").grid(row=3, column=0, sticky=tk.NW, pady=5)
+        self.reflector_stats_text = tk.Text(main_frame, height=4, width=90, wrap='word')
+        self.reflector_stats_text.grid(row=3, column=1, columnspan=2, sticky=(tk.W, tk.E), pady=5, padx=(10, 0))
+        self.reflector_stats_text.config(state=tk.DISABLED)
 
         ttk.Separator(main_frame, orient='horizontal').grid(row=4, column=0, columnspan=3, sticky=(tk.W, tk.E), pady=15)
 
@@ -157,37 +166,28 @@ class CSViewer:
             counter_value = self.counter_var.get()
 
             if self.live_mode:
-                if self.live_initiator:
-                    info = self._get_subevent_info(self.live_initiator)
-                    self.initiator_steps_label.config(text=info)
-                else:
-                    self.initiator_steps_label.config(text="waiting for data...")
-
-                if self.live_reflector:
-                    info = self._get_subevent_info(self.live_reflector)
-                    self.reflector_steps_label.config(text=info)
-                else:
-                    self.reflector_steps_label.config(text="waiting for data...")
+                current_initiator = self.live_initiator
+                current_reflector = self.live_reflector
 
                 phase_slope_data = self.live_phase_slope
                 rssi_ini_data = self.live_rssi_ini
                 rssi_ref_data = self.live_rssi_ref
             else:
-                if counter_value in self.initiator_map:
-                    info = self._get_subevent_info(self.initiator_map[counter_value])
-                    self.initiator_steps_label.config(text=info)
-                else:
-                    self.initiator_steps_label.config(text="none")
-
-                if counter_value in self.reflector_map:
-                    info = self._get_subevent_info(self.reflector_map[counter_value])
-                    self.reflector_steps_label.config(text=info)
-                else:
-                    self.reflector_steps_label.config(text="none")
+                current_initiator = self.initiator_map.get(counter_value)
+                current_reflector = self.reflector_map.get(counter_value)
 
                 phase_slope_data = self.phase_slope_map.get(counter_value)
                 rssi_ini_data = self.rssi_ini_map.get(counter_value)
                 rssi_ref_data = self.rssi_ref_map.get(counter_value)
+
+            self._set_text_widget(
+                self.initiator_stats_text,
+                self._format_subevent_statistics(current_initiator, is_initiator=True)
+            )
+            self._set_text_widget(
+                self.reflector_stats_text,
+                self._format_subevent_statistics(current_reflector, is_initiator=False)
+            )
 
             self._update_phase_plot(phase_slope_data)
             self._update_rssi_plot(rssi_ini_data, rssi_ref_data)
@@ -239,17 +239,61 @@ class CSViewer:
         self.counter_var.set(counter)
         self._update_display()
 
-    def _get_subevent_info(self, subevent):
-        """Generate info string for a subevent"""
+    def _set_text_widget(self, widget: tk.Text, value: str):
+        widget.config(state=tk.NORMAL)
+        widget.delete('1.0', tk.END)
+        widget.insert(tk.END, value)
+        widget.config(state=tk.DISABLED)
+
+    def _format_subevent_statistics(self, subevent: Optional[SubeventResults], is_initiator: bool) -> str:
+        if subevent is None:
+            return "waiting for data..." if self.live_mode else "none"
+
         steps = subevent.steps
-        num_steps = len(steps)
 
-        channels = set(step.channel for step in steps)
-        num_channels = len(channels)
+        mode0_steps = [step for step in steps if step.mode == CSMode.MODE_0]
+        total_num_mode0 = len(mode0_steps)
+        num_aa_success = sum(
+            1
+            for step in mode0_steps
+            if isinstance(step, CSStepMode0) and step.packet_quality == PacketQuality.AA_SUCCESS
+        )
+        num_aa_error = total_num_mode0 - num_aa_success
 
-        info = f"{num_steps} steps, {num_channels} channels"
+        mode2_steps = [step for step in steps if step.mode == CSMode.MODE_2]
+        total_num_mode2 = len(mode2_steps)
+        num_good = 0
+        num_medium = 0
+        num_low = 0
 
-        return info
+        for step in mode2_steps:
+            if not isinstance(step, CSStepMode2):
+                num_low += 1
+                continue
+
+            tones_quality = [tone.quality for tone in step.tones]
+
+            if ToneQualityIndicator.TONE_QUALITY_HIGH in tones_quality:
+                num_good += 1
+            elif ToneQualityIndicator.TONE_QUALITY_MEDIUM in tones_quality:
+                num_medium += 1
+            elif ToneQualityIndicator.TONE_QUALITY_LOW in tones_quality:
+                num_low += 1
+            else:
+                num_low += 1
+
+        measured_freq_offset = "N/A"
+        if is_initiator and subevent.measured_freq_offset is not None:
+            measured_freq_offset = f"{subevent.measured_freq_offset:.2f}"
+
+        return (
+            f"procedure_counter: {subevent.procedure_counter}, "
+            f"reference_power_level: {subevent.reference_power_level}, "
+            f"num_steps_reported: {subevent.num_steps_reported}, "
+            f"measured_freq_offset: {measured_freq_offset}\n"
+            f"Mode-0 steps: {total_num_mode0} ({num_aa_success}/{num_aa_error})\n"
+            f"Mode-2 steps: {total_num_mode2} ({num_good}, {num_medium}, {num_low})"
+        )
 
     def _update_phase_plot(self, phase_slope_data: Optional[Dict[int, float]]):
         """Update the phase slope plot"""
