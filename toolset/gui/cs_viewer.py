@@ -282,15 +282,10 @@ class CSViewer:
             else:
                 num_low += 1
 
-        measured_freq_offset = "N/A"
-        if is_initiator and subevent.measured_freq_offset is not None:
-            measured_freq_offset = f"{subevent.measured_freq_offset:.2f}"
-
         return (
             f"procedure_counter: {subevent.procedure_counter}, "
             f"reference_power_level: {subevent.reference_power_level}, "
             f"num_steps_reported: {subevent.num_steps_reported}, "
-            f"measured_freq_offset: {measured_freq_offset}\n"
             f"Mode-0 steps: {total_num_mode0} ({num_aa_success}/{num_aa_error})\n"
             f"Mode-2 steps: {total_num_mode2} ({num_good}, {num_medium}, {num_low})"
         )

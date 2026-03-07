@@ -80,12 +80,6 @@ def parse_cs_subevent_result(text_data: str) -> Optional[cs_subevent.SubeventRes
             return None
         num_steps_reported = int(match.group(1))
 
-        # Extract measured frequency offset (optional, Initiator only)
-        measured_freq_offset = None
-        match = re.search(r'Measured frequency offset:\s*(-?\d+(?:\.\d+)?)', text_data)
-        if match:
-            measured_freq_offset = float(match.group(1))
-
         # Extract raw step data (hex string)
         # Find "Raw step data:" and collect all hex data after it, but stop before end marker
         match = re.search(r'Raw step data:(.+?)(?:\n\n|I: CS Subevent end|\Z)', text_data, re.DOTALL)
@@ -103,7 +97,6 @@ def parse_cs_subevent_result(text_data: str) -> Optional[cs_subevent.SubeventRes
 
         return cs_subevent.SubeventResults(
             procedure_counter=procedure_counter,
-            measured_freq_offset=measured_freq_offset,
             reference_power_level=reference_power_level,
             procedure_done_status=procedure_done_status,
             subevent_done_status=subevent_done_status,
