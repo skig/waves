@@ -12,6 +12,7 @@ from toolset.cs_utils.cs_step import (
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 from matplotlib.figure import Figure
 from matplotlib.container import BarContainer
+from matplotlib.patches import Patch
 
 
 class CSViewer:
@@ -138,8 +139,17 @@ class CSViewer:
                                               color='blue', label='Initiator', alpha=0.8, animated=True)
         self._rssi_ref_bars = self.ax_rssi.bar([], [], width=self._bar_width,
                                               color='red', label='Reflector', alpha=0.8, animated=True)
-        self.ax_rssi.legend()
+        self._update_rssi_legend()
         self._force_full_redraw = True
+
+    def _update_rssi_legend(self):
+        handles = [
+            Patch(facecolor='blue', edgecolor='blue', alpha=0.8, label='Initiator'),
+            Patch(facecolor='red', edgecolor='red', alpha=0.8, label='Reflector'),
+        ]
+        legend = self.ax_rssi.legend(handles=handles)
+        for text, color in zip(legend.get_texts(), ('blue', 'red')):
+            text.set_color(color)
 
     def _on_canvas_draw(self, _event):
         if not self._supports_blit():
