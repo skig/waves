@@ -72,15 +72,18 @@ static bool le_param_req(struct bt_conn *conn, struct bt_le_conn_param *param)
 
 static void connected_cb(struct bt_conn *conn, uint8_t err)
 {
-	char addr[BT_ADDR_LE_STR_LEN];
-
-	(void)bt_addr_le_to_str(bt_conn_get_dst(conn), addr, sizeof(addr));
-	LOG_INF("Connected to %s (err 0x%02X)", addr, err);
-
 	if (err) {
 		bt_conn_unref(conn);
 		connection = NULL;
 	} else {
+		char addr[BT_ADDR_LE_STR_LEN];
+		(void)bt_addr_le_to_str(bt_conn_get_dst(conn), addr, sizeof(addr));
+		LOG_INF("Connected to %s (err 0x%02X)", addr, err);
+
+		struct bt_conn_info info;
+		(void)bt_conn_get_info(conn, &info);
+		LOG_INF("Connection interval: %u ms\n", info.le.interval_us / 1000);
+
 		connection = bt_conn_ref(conn);
 		k_sem_give(&sem_connected);
 		dk_set_led_on(CON_STATUS_LED);
