@@ -1,5 +1,5 @@
 from typing import Dict
-from math import sqrt
+from math import log, sqrt
 from toolset.cs_utils.cs_subevent import SubeventResults
 from toolset.cs_utils.cs_step import CSStepMode2, ToneQualityIndicatorExtensionSlot
 
@@ -12,6 +12,8 @@ def calculate_rssi_data(initiator: SubeventResults, reflector: SubeventResults) 
 def _extract_channel_rssi(subevent: SubeventResults) -> Dict[int, float]:
     channel_rssi = {}
 
+    rpl_dbm = subevent.reference_power_level
+
     for step in subevent.steps:
         if not isinstance(step, CSStepMode2):
             continue
@@ -20,10 +22,10 @@ def _extract_channel_rssi(subevent: SubeventResults) -> Dict[int, float]:
             continue
 
         avg_i, avg_q = _calculate_average_rssi(step)
-        rssi = sqrt(avg_i ** 2 + avg_q ** 2)
-
+        mag = sqrt(avg_i ** 2 + avg_q ** 2)
+        rssi_dbm = 20 * log(abs(mag / 2048), 10) + rpl_dbm
         # TODO: if channel_rssi is not empty, we need to do something smart. Maybe find average or something like that?
-        channel_rssi[step.channel] = rssi
+        channel_rssi[step.channel] = rssi_dbm
 
     return channel_rssi
 

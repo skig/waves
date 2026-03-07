@@ -1,5 +1,6 @@
 import tkinter as tk
 from tkinter import ttk
+import math
 from typing import List, Optional, Callable, Dict
 from toolset.cs_utils.cs_subevent import SubeventResults
 from toolset.cs_utils.cs_step import (
@@ -50,6 +51,8 @@ class CSViewer:
         self._force_full_redraw = True
         self._phase_ylim = (-1.0, 1.0)
         self._rssi_ylim = (-1.0, 1.0)
+        self._rssi_bottom_dbm = -100.0
+        self._rssi_top_dbm = 0.0
         self._bar_width = 0.35
 
         all_counters = sorted(set(self.initiator_map.keys()) | set(self.reflector_map.keys()))
@@ -113,7 +116,7 @@ class CSViewer:
 
         self.ax_rssi = self.fig.add_subplot(212)
         self.ax_rssi.set_xlabel('Channel Index')
-        self.ax_rssi.set_ylabel('RSSI Magnitude')
+        self.ax_rssi.set_ylabel('RSSI Magnitude, dBm')
         self.ax_rssi.set_title('RSSI Values')
         self.ax_rssi.grid(True)
 
@@ -136,9 +139,11 @@ class CSViewer:
     def _initialize_plot_artists(self):
         self._phase_bars = self.ax_phase.bar([], [], color='steelblue', width=0.6, animated=True)
         self._rssi_ini_bars = self.ax_rssi.bar([], [], width=self._bar_width,
-                                              color='blue', label='Initiator', alpha=0.8, animated=True)
+                                              color='blue', label='Initiator', alpha=0.8,
+                                              bottom=self._rssi_bottom_dbm, animated=True)
         self._rssi_ref_bars = self.ax_rssi.bar([], [], width=self._bar_width,
-                                              color='red', label='Reflector', alpha=0.8, animated=True)
+                                              color='red', label='Reflector', alpha=0.8,
+                                              bottom=self._rssi_bottom_dbm, animated=True)
         self._update_rssi_legend()
         self._force_full_redraw = True
 
@@ -322,40 +327,57 @@ class CSViewer:
 
         self._update_phase_limits(sorted_channels, phases)
 
+    def _rssi_plot_bounds(self, values: List[float]) -> tuple[int, int]:
+        if not values:
+            return -100, 0
+
+        bottom = math.floor(min(values) / 10) * 10
+        top = math.ceil(max(values) / 10) * 10
+
+        return bottom, top
+
     def _update_rssi_plot(self, rssi_ini_data: Optional[Dict[int, float]], rssi_ref_data: Optional[Dict[int, float]]):
         """Update the RSSI plot"""
         ini_channels = tuple(sorted(rssi_ini_data.keys())) if rssi_ini_data else ()
         ref_channels = tuple(sorted(rssi_ref_data.keys())) if rssi_ref_data else ()
         ini_values = [rssi_ini_data[ch] for ch in ini_channels] if rssi_ini_data else []
         ref_values = [rssi_ref_data[ch] for ch in ref_channels] if rssi_ref_data else []
+        all_values = [*ini_values, *ref_values]
+        self._rssi_bottom_dbm, self._rssi_top_dbm = self._rssi_plot_bounds(all_values)
+        ini_heights = [value - self._rssi_bottom_dbm for value in ini_values]
+        ref_heights = [value - self._rssi_bottom_dbm for value in ref_values]
 
         if ini_channels != self._rssi_ini_channels:
             if self._rssi_ini_bars is not None:
                 self._rssi_ini_bars.remove()
             ini_positions = [ch - self._bar_width / 2 for ch in ini_channels]
-            self._rssi_ini_bars = self.ax_rssi.bar(ini_positions, ini_values, width=self._bar_width,
-                                                   color='blue', label='Initiator', alpha=0.8, animated=True)
+            self._rssi_ini_bars = self.ax_rssi.bar(ini_positions, ini_heights, width=self._bar_width,
+                                                   color='blue', label='Initiator', alpha=0.8,
+                                                   bottom=self._rssi_bottom_dbm, animated=True)
             self._rssi_ini_channels = ini_channels
             self._force_full_redraw = True
         else:
             if self._rssi_ini_bars is not None:
-                for bar, value in zip(self._rssi_ini_bars.patches, ini_values):
+                for bar, value in zip(self._rssi_ini_bars.patches, ini_heights):
+                    bar.set_y(self._rssi_bottom_dbm)
                     bar.set_height(value)
 
         if ref_channels != self._rssi_ref_channels:
             if self._rssi_ref_bars is not None:
                 self._rssi_ref_bars.remove()
             ref_positions = [ch + self._bar_width / 2 for ch in ref_channels]
-            self._rssi_ref_bars = self.ax_rssi.bar(ref_positions, ref_values, width=self._bar_width,
-                                                   color='red', label='Reflector', alpha=0.8, animated=True)
+            self._rssi_ref_bars = self.ax_rssi.bar(ref_positions, ref_heights, width=self._bar_width,
+                                                   color='red', label='Reflector', alpha=0.8,
+                                                   bottom=self._rssi_bottom_dbm, animated=True)
             self._rssi_ref_channels = ref_channels
             self._force_full_redraw = True
         else:
             if self._rssi_ref_bars is not None:
-                for bar, value in zip(self._rssi_ref_bars.patches, ref_values):
+                for bar, value in zip(self._rssi_ref_bars.patches, ref_heights):
+                    bar.set_y(self._rssi_bottom_dbm)
                     bar.set_height(value)
 
-        self._update_rssi_limits(ini_channels, ini_values, ref_channels, ref_values)
+        self._update_rssi_limits(ini_channels, ref_channels, self._rssi_bottom_dbm, self._rssi_top_dbm)
 
     def _update_phase_limits(self, channels: tuple[int, ...], values: List[float]):
         if channels:
@@ -385,26 +407,18 @@ class CSViewer:
     def _update_rssi_limits(
         self,
         ini_channels: tuple[int, ...],
-        ini_values: List[float],
         ref_channels: tuple[int, ...],
-        ref_values: List[float]
+        y_bottom: float,
+        y_top: float,
     ):
         channels = [*ini_channels, *ref_channels]
-        values = [*ini_values, *ref_values]
         if channels:
             x_min = min(channels) - 0.8
             x_max = max(channels) + 0.8
-            min_value = min(values) if values else -1.0
-            max_value = max(values) if values else 1.0
-            y_pad = max(0.5, (max_value - min_value) * 0.1)
-            y_min = min(min_value - y_pad, 0.0)
-            y_max = max(max_value + y_pad, 0.0)
-            if y_min == y_max:
-                y_min -= 1.0
-                y_max += 1.0
+            y_min, y_max = y_bottom, y_top
         else:
             x_min, x_max = -1.0, 1.0
-            y_min, y_max = -1.0, 1.0
+            y_min, y_max = -100.0, 0.0
 
         new_ylim = (y_min, y_max)
         if self.ax_rssi.get_xlim() != (x_min, x_max):
