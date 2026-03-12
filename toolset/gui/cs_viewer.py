@@ -167,11 +167,13 @@ class CSViewer:
             row=0, column=0, sticky=tk.W, pady=(0, 3))
         self.ini_hex_text = self._create_hex_text_widget(hex_detail_frame, row=1, col=0, padx=(0, 4))
         self.ini_hex_text.bind('<Button-1>', lambda e: self._on_hex_click(e, 'ini'))
+        self._bind_hex_keys(self.ini_hex_text)
 
         ttk.Label(hex_detail_frame, text='Reflector Raw Data:').grid(
             row=0, column=1, sticky=tk.W, pady=(0, 3), padx=4)
         self.ref_hex_text = self._create_hex_text_widget(hex_detail_frame, row=1, col=1, padx=4)
         self.ref_hex_text.bind('<Button-1>', lambda e: self._on_hex_click(e, 'ref'))
+        self._bind_hex_keys(self.ref_hex_text)
 
         ttk.Label(hex_detail_frame, text='Selected Step Details:').grid(
             row=0, column=2, sticky=tk.W, pady=(0, 3), padx=(4, 0))
@@ -278,6 +280,21 @@ class CSViewer:
             # Include trailing space only when it's within the row (not the last column)
             ce = lk * 3 + (3 if lk < 15 else 2)
             widget.tag_add(tag, f'{line_num}.{cs}', f'{line_num}.{ce}')
+
+    def _bind_hex_keys(self, widget: tk.Text):
+        widget.bind('<Left>',  lambda e: (self._on_hex_key_navigate(-1), 'break')[1])
+        widget.bind('<Right>', lambda e: (self._on_hex_key_navigate(+1), 'break')[1])
+        widget.bind('<Up>',    lambda e: (self._on_hex_key_navigate(-2), 'break')[1])
+        widget.bind('<Down>',  lambda e: (self._on_hex_key_navigate(+2), 'break')[1])
+
+    def _on_hex_key_navigate(self, delta: int):
+        max_step = max(len(self._ini_step_ranges), len(self._ref_step_ranges)) - 1
+        if max_step < 0:
+            return
+        current = self._selected_step_idx if self._selected_step_idx is not None else 0
+        new_idx = max(0, min(max_step, current + delta))
+        if new_idx != self._selected_step_idx:
+            self._select_step(new_idx)
 
     def _on_hex_click(self, event, source: str):
         widget = self.ini_hex_text if source == 'ini' else self.ref_hex_text
