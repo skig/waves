@@ -362,7 +362,7 @@ class CSViewer:
             )
             lines.append(f'Packet Antenna:  {step.packet_antenna}')
             if step.measured_freq_offset is not None:
-                lines.append(f'Freq Offset:     {step.measured_freq_offset:.2f} × 0.01 ppm')
+                lines.append(f'Freq Offset:     {step.measured_freq_offset / 100:.4f} ppm')
 
         elif isinstance(step, CSStepMode2):
             lines.append(f'Antenna Permutation: {step.antenna_permutation_index}')

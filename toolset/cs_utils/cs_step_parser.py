@@ -132,8 +132,11 @@ def parse_mode0(data: bytes, channel: int) -> cs_step.CSStepMode0:
 
     measured_freq_offset = None
     if len(data) == 5:
-        # Parse 2-byte 15-bit signed integer in units of 0.01 ppm
-        offset_raw = int.from_bytes(data[3:5], byteorder='little', signed=True)
+        # Parse 2-byte 15-bit signed integer in units of 0.01 ppm.
+        # Bit 15 is unused; sign bit is bit 14.
+        offset_raw = int.from_bytes(data[3:5], byteorder='little') & 0x7FFF
+        if offset_raw >= 0x4000:  # sign-extend from 15 bits
+            offset_raw -= 0x8000
         measured_freq_offset = float(offset_raw)
 
     return cs_step.CSStepMode0(
