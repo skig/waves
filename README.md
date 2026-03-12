@@ -1,4 +1,6 @@
 # waves
+
+<img src="waves_icon.png" width="125"/>
 BLE Channel Sounding phase-based ranging analysis tool
 
 ## Background
