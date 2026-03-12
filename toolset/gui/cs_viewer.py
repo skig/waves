@@ -96,12 +96,12 @@ class CSViewer:
         ttk.Separator(main_frame, orient='horizontal').grid(row=1, column=0, columnspan=3, sticky=(tk.W, tk.E), pady=15)
 
         ttk.Label(main_frame, text="Initiator Statistics:").grid(row=2, column=0, sticky=tk.NW, pady=5)
-        self.initiator_stats_text = tk.Text(main_frame, height=4, width=90, wrap='word')
+        self.initiator_stats_text = tk.Text(main_frame, height=2, width=90, wrap='word')
         self.initiator_stats_text.grid(row=2, column=1, columnspan=2, sticky=(tk.W, tk.E), pady=5, padx=(10, 0))
         self.initiator_stats_text.config(state=tk.DISABLED)
 
         ttk.Label(main_frame, text="Reflector Statistics:").grid(row=3, column=0, sticky=tk.NW, pady=5)
-        self.reflector_stats_text = tk.Text(main_frame, height=4, width=90, wrap='word')
+        self.reflector_stats_text = tk.Text(main_frame, height=2, width=90, wrap='word')
         self.reflector_stats_text.grid(row=3, column=1, columnspan=2, sticky=(tk.W, tk.E), pady=5, padx=(10, 0))
         self.reflector_stats_text.config(state=tk.DISABLED)
 
@@ -298,10 +298,9 @@ class CSViewer:
                 num_low += 1
 
         return (
-            f"procedure_counter: {subevent.procedure_counter}, "
             f"reference_power_level: {subevent.reference_power_level}, "
             f"num_steps_reported: {subevent.num_steps_reported}, "
-            f"Mode-0 steps: {total_num_mode0} ({num_aa_success}/{num_aa_error})\n"
+            f"Mode-0 steps: {total_num_mode0} ({num_aa_success}/{num_aa_error}), "
             f"Mode-2 steps: {total_num_mode2} ({num_good}, {num_medium}, {num_low})"
         )
 
