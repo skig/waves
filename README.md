@@ -10,6 +10,14 @@ The main use-case of the BLE CS is distance measurement allowing users to find d
 
 The repo provides different tools to learn basic principles of CS tones data processing. It does not contain any ready-to-use solution for distance measurement, but rather serves as a playground for learning and experimenting with BLE CS data.
 
+## Target audience
+
+Students and researchers interested in DSP and wireless technologies.
+
+Engineers interested in developing their own CS-based algorithms for distance measurements and other applications.
+
+Embedded enthusiasts curious about Channel sounding under the hood.
+
 ## Repo structure
 * cs_ini  - channel sounding initiator firmware sample for nrf54l15dk
 * cs_ref  - channel sounding reflector firmware sample for nrf54l15dk
