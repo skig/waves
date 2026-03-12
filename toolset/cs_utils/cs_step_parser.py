@@ -1,25 +1,23 @@
 import logging
+from typing import List, Tuple
 from . import cs_step
 
 logger = logging.getLogger(__name__)
 
 
-def parse_cs_steps(hex_data: str) -> list[cs_step.CSStep]:
-    """Parse stream of CS steps, returning all at once.
-
-    Args:
-        hex_data: Hexadecimal string representation of data stream
+def _parse_steps_internal(hex_data: str) -> Tuple[List[cs_step.CSStep], List[Tuple[int, int]]]:
+    """Parse CS step stream, returning steps and their byte ranges.
 
     Returns:
-        List of all CSStep objects parsed from stream
-
-    Raises:
-        ValueError: If data is malformed or contains invalid mode
+        Tuple of (steps, byte_ranges) where byte_ranges[i] = (start, end) byte
+        offsets in the raw data for steps[i]. Only successfully parsed steps
+        are included (skipped/invalid steps are omitted from both lists).
     """
     HEADER_SIZE = 3  # mode (1) + channel (1) + data_len (1)
 
     data = bytes.fromhex(hex_data)
     steps = []
+    byte_ranges = []
     offset = 0
 
     while offset < len(data):
@@ -51,9 +49,40 @@ def parse_cs_steps(hex_data: str) -> list[cs_step.CSStep]:
         step = parse_cs_step_from_bytes(step_data, mode, channel)
         if step is not None:
             steps.append(step)
+            byte_ranges.append((offset, offset + HEADER_SIZE + data_len))
         offset += HEADER_SIZE + data_len
 
+    return steps, byte_ranges
+
+
+def parse_cs_steps(hex_data: str) -> List[cs_step.CSStep]:
+    """Parse stream of CS steps, returning all at once.
+
+    Args:
+        hex_data: Hexadecimal string representation of data stream
+
+    Returns:
+        List of all CSStep objects parsed from stream
+
+    Raises:
+        ValueError: If data is malformed or contains invalid mode
+    """
+    steps, _ = _parse_steps_internal(hex_data)
     return steps
+
+
+def parse_cs_steps_with_ranges(hex_data: str) -> Tuple[List[cs_step.CSStep], List[Tuple[int, int]]]:
+    """Parse stream of CS steps, returning steps paired with their byte ranges.
+
+    Args:
+        hex_data: Hexadecimal string representation of data stream
+
+    Returns:
+        Tuple of (steps, byte_ranges). byte_ranges[i] = (start, end) exclusive
+        byte offsets in the raw data for steps[i].
+    """
+    return _parse_steps_internal(hex_data)
+
 
 
 def parse_cs_step_from_bytes(data: bytes, mode: cs_step.CSMode, channel: int) -> cs_step.CSStep:

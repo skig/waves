@@ -93,7 +93,7 @@ def parse_cs_subevent_result(text_data: str) -> Optional[cs_subevent.SubeventRes
         hex_data = re.sub(r'[^0-9a-fA-F]', '', hex_section)
 
         # Parse steps using cs_step_parser
-        steps = cs_step_parser.parse_cs_steps(hex_data)
+        steps, step_byte_ranges = cs_step_parser.parse_cs_steps_with_ranges(hex_data)
 
         return cs_subevent.SubeventResults(
             procedure_counter=procedure_counter,
@@ -103,7 +103,9 @@ def parse_cs_subevent_result(text_data: str) -> Optional[cs_subevent.SubeventRes
             procedure_abort_reason=procedure_abort_reason,
             subevent_abort_reason=subevent_abort_reason,
             num_steps_reported=num_steps_reported,
-            steps=steps
+            steps=steps,
+            raw_data=bytes.fromhex(hex_data),
+            step_byte_ranges=step_byte_ranges,
         )
 
     except (ValueError, KeyError) as e:

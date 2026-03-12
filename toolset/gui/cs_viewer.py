@@ -6,9 +6,12 @@ from toolset.cs_utils.cs_subevent import SubeventResults
 from toolset.cs_utils.cs_step import (
     CSMode,
     CSStepMode0,
+    CSStepMode1,
     CSStepMode2,
+    CSStepMode3,
     PacketQuality,
     ToneQualityIndicator,
+    ToneQualityIndicatorExtensionSlot,
 )
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 from matplotlib.figure import Figure
@@ -62,11 +65,16 @@ class CSViewer:
         self._rssi_top_dbm = 0.0
         self._bar_width = 0.35
 
+        # Stats-tab hex view state
+        self._selected_step_idx: Optional[int] = None
+        self._ini_step_ranges: List[tuple] = []
+        self._ref_step_ranges: List[tuple] = []
+
         all_counters = sorted(set(self.initiator_map.keys()) | set(self.reflector_map.keys()))
 
         self.root = tk.Tk()
         self.root.title("Channel Sounding Viewer")
-        self.root.geometry("1200x900")
+        self.root.geometry("1760x900")
 
         self._create_widgets(all_counters)
 
@@ -132,17 +140,231 @@ class CSViewer:
         self._tab_indices[key] = self.notebook.index('end') - 1
 
     def _build_stats_tab(self, tab_frame: ttk.Frame):
-        ttk.Label(tab_frame, text='Initiator Statistics:').grid(row=0, column=0, sticky=tk.NW, pady=5)
-        self.initiator_stats_text = tk.Text(tab_frame, height=2, width=90, wrap='word')
-        self.initiator_stats_text.grid(row=0, column=1, sticky=(tk.W, tk.E), pady=5, padx=(10, 0))
+        # --- Summary statistics (top) ---
+        stats_frame = ttk.Frame(tab_frame)
+        stats_frame.grid(row=0, column=0, sticky=(tk.W, tk.E), pady=(0, 6))
+        stats_frame.columnconfigure(1, weight=1)
+
+        ttk.Label(stats_frame, text='Initiator Statistics:').grid(row=0, column=0, sticky=tk.NW, pady=3)
+        self.initiator_stats_text = tk.Text(stats_frame, height=2, wrap='word')
+        self.initiator_stats_text.grid(row=0, column=1, sticky=(tk.W, tk.E), pady=3, padx=(10, 0))
         self.initiator_stats_text.config(state=tk.DISABLED)
 
-        ttk.Label(tab_frame, text='Reflector Statistics:').grid(row=1, column=0, sticky=tk.NW, pady=5)
-        self.reflector_stats_text = tk.Text(tab_frame, height=2, width=90, wrap='word')
-        self.reflector_stats_text.grid(row=1, column=1, sticky=(tk.W, tk.E), pady=5, padx=(10, 0))
+        ttk.Label(stats_frame, text='Reflector Statistics:').grid(row=1, column=0, sticky=tk.NW, pady=3)
+        self.reflector_stats_text = tk.Text(stats_frame, height=2, wrap='word')
+        self.reflector_stats_text.grid(row=1, column=1, sticky=(tk.W, tk.E), pady=3, padx=(10, 0))
         self.reflector_stats_text.config(state=tk.DISABLED)
 
-        tab_frame.columnconfigure(1, weight=1)
+        # --- Hex + details panel (bottom, three equal columns) ---
+        hex_detail_frame = ttk.Frame(tab_frame)
+        hex_detail_frame.grid(row=1, column=0, sticky=(tk.W, tk.E, tk.N, tk.S))
+        hex_detail_frame.columnconfigure(0, weight=1)
+        hex_detail_frame.columnconfigure(1, weight=1)
+        hex_detail_frame.columnconfigure(2, weight=1)
+        hex_detail_frame.rowconfigure(1, weight=1)
+
+        ttk.Label(hex_detail_frame, text='Initiator Raw Data:').grid(
+            row=0, column=0, sticky=tk.W, pady=(0, 3))
+        self.ini_hex_text = self._create_hex_text_widget(hex_detail_frame, row=1, col=0, padx=(0, 4))
+        self.ini_hex_text.bind('<Button-1>', lambda e: self._on_hex_click(e, 'ini'))
+
+        ttk.Label(hex_detail_frame, text='Reflector Raw Data:').grid(
+            row=0, column=1, sticky=tk.W, pady=(0, 3), padx=4)
+        self.ref_hex_text = self._create_hex_text_widget(hex_detail_frame, row=1, col=1, padx=4)
+        self.ref_hex_text.bind('<Button-1>', lambda e: self._on_hex_click(e, 'ref'))
+
+        ttk.Label(hex_detail_frame, text='Selected Step Details:').grid(
+            row=0, column=2, sticky=tk.W, pady=(0, 3), padx=(4, 0))
+        self.step_details_text = self._create_details_text_widget(hex_detail_frame, row=1, col=2, padx=(4, 0))
+
+        tab_frame.columnconfigure(0, weight=1)
+        tab_frame.rowconfigure(1, weight=1)
+
+    def _create_hex_text_widget(self, parent: ttk.Frame, row: int, col: int, padx) -> tk.Text:
+        container = ttk.Frame(parent)
+        container.grid(row=row, column=col, sticky=(tk.W, tk.E, tk.N, tk.S), padx=padx)
+        container.rowconfigure(0, weight=1)
+        container.columnconfigure(0, weight=1)
+        text = tk.Text(container, wrap='none', font=('Courier', 12),
+                       state=tk.DISABLED, cursor='arrow', width=50)
+        sb_y = ttk.Scrollbar(container, orient=tk.VERTICAL, command=text.yview)
+        sb_x = ttk.Scrollbar(container, orient=tk.HORIZONTAL, command=text.xview)
+        text.configure(yscrollcommand=sb_y.set, xscrollcommand=sb_x.set)
+        text.grid(row=0, column=0, sticky=(tk.W, tk.E, tk.N, tk.S))
+        sb_y.grid(row=0, column=1, sticky=(tk.N, tk.S))
+        sb_x.grid(row=1, column=0, sticky=(tk.W, tk.E))
+        return text
+
+    def _create_details_text_widget(self, parent: ttk.Frame, row: int, col: int, padx) -> tk.Text:
+        container = ttk.Frame(parent)
+        container.grid(row=row, column=col, sticky=(tk.W, tk.E, tk.N, tk.S), padx=padx)
+        container.rowconfigure(0, weight=1)
+        container.columnconfigure(0, weight=1)
+        text = tk.Text(container, wrap='word', font=('Courier', 10), state=tk.DISABLED)
+        sb = ttk.Scrollbar(container, orient=tk.VERTICAL, command=text.yview)
+        text.configure(yscrollcommand=sb.set)
+        text.grid(row=0, column=0, sticky=(tk.W, tk.E, tk.N, tk.S))
+        sb.grid(row=0, column=1, sticky=(tk.N, tk.S))
+        return text
+
+    def _update_stats_tab(self):
+        self._set_text_widget(
+            self.initiator_stats_text,
+            self._format_subevent_statistics(self._current_initiator)
+        )
+        self._set_text_widget(
+            self.reflector_stats_text,
+            self._format_subevent_statistics(self._current_reflector)
+        )
+        self._ini_step_ranges = self._get_step_ranges(self._current_initiator)
+        self._ref_step_ranges = self._get_step_ranges(self._current_reflector)
+        self._selected_step_idx = None
+        self._populate_hex_widget(self.ini_hex_text, self._current_initiator, self._ini_step_ranges)
+        self._populate_hex_widget(self.ref_hex_text, self._current_reflector, self._ref_step_ranges)
+        self._set_text_widget(self.step_details_text, 'Click on a step in the hex view to see details.')
+
+    def _get_step_ranges(self, subevent: Optional[SubeventResults]) -> List[tuple]:
+        if subevent is None or subevent.step_byte_ranges is None:
+            return []
+        return subevent.step_byte_ranges
+
+    def _populate_hex_widget(
+        self,
+        widget: tk.Text,
+        subevent: Optional[SubeventResults],
+        step_ranges: List[tuple],
+    ):
+        widget.config(state=tk.NORMAL)
+        widget.delete('1.0', tk.END)
+        for tag in list(widget.tag_names()):
+            if tag != 'sel':
+                widget.tag_delete(tag)
+
+        if subevent is None or subevent.raw_data is None:
+            widget.insert('1.0', 'waiting for data...' if self.live_mode else 'no data')
+            widget.config(state=tk.DISABLED)
+            return
+
+        raw = subevent.raw_data
+        hex_rows = [
+            ' '.join(f'{b:02x}' for b in raw[i:i + 16])
+            for i in range(0, len(raw), 16)
+        ]
+        widget.insert('1.0', '\n'.join(hex_rows))
+
+        widget.tag_configure('step_even', background='#f0f0f0')
+        widget.tag_configure('step_odd',  background='#ffffff')
+        widget.tag_configure('step_selected', background='#add8e6')
+        widget.tag_raise('step_selected')
+
+        for step_idx, (byte_start, byte_end) in enumerate(step_ranges):
+            color_tag = 'step_even' if step_idx % 2 == 0 else 'step_odd'
+            self._tag_bytes_in_widget(widget, color_tag, byte_start, byte_end)
+
+        widget.config(state=tk.DISABLED)
+
+    def _tag_bytes_in_widget(self, widget: tk.Text, tag: str, byte_start: int, byte_end: int):
+        """Apply tag to hex characters for bytes [byte_start, byte_end) in the text widget."""
+        if byte_end <= byte_start:
+            return
+        row_start = byte_start // 16
+        row_end = (byte_end - 1) // 16
+        for r in range(row_start, row_end + 1):
+            first = max(byte_start, r * 16)
+            last = min(byte_end - 1, r * 16 + 15)
+            line_num = r + 1
+            cs = (first % 16) * 3
+            lk = last % 16
+            # Include trailing space only when it's within the row (not the last column)
+            ce = lk * 3 + (3 if lk < 15 else 2)
+            widget.tag_add(tag, f'{line_num}.{cs}', f'{line_num}.{ce}')
+
+    def _on_hex_click(self, event, source: str):
+        widget = self.ini_hex_text if source == 'ini' else self.ref_hex_text
+        step_ranges = self._ini_step_ranges if source == 'ini' else self._ref_step_ranges
+
+        idx = widget.index(f'@{event.x},{event.y}')
+        line, col = map(int, idx.split('.'))
+        byte_offset = (line - 1) * 16 + col // 3
+
+        step_idx = next(
+            (i for i, (start, end) in enumerate(step_ranges) if start <= byte_offset < end),
+            None,
+        )
+        if step_idx is None:
+            return
+        self._select_step(step_idx)
+
+    def _select_step(self, step_idx: int):
+        self._selected_step_idx = step_idx
+        self._update_hex_selection(self.ini_hex_text, self._ini_step_ranges, step_idx)
+        self._update_hex_selection(self.ref_hex_text, self._ref_step_ranges, step_idx)
+
+        ini_step = (
+            self._current_initiator.steps[step_idx]
+            if self._current_initiator and step_idx < len(self._current_initiator.steps)
+            else None
+        )
+        ref_step = (
+            self._current_reflector.steps[step_idx]
+            if self._current_reflector and step_idx < len(self._current_reflector.steps)
+            else None
+        )
+
+        details = (
+            f'--- Initiator Step {step_idx} ---\n'
+            f'{self._format_step_details(ini_step)}'
+            f'\n\n--- Reflector Step {step_idx} ---\n'
+            f'{self._format_step_details(ref_step)}'
+        )
+        self._set_text_widget(self.step_details_text, details)
+
+    def _update_hex_selection(self, widget: tk.Text, step_ranges: List[tuple], selected_idx: int):
+        widget.config(state=tk.NORMAL)
+        widget.tag_remove('step_selected', '1.0', tk.END)
+        if 0 <= selected_idx < len(step_ranges):
+            start, end = step_ranges[selected_idx]
+            self._tag_bytes_in_widget(widget, 'step_selected', start, end)
+            widget.tag_raise('step_selected')
+            line = start // 16 + 1
+            widget.see(f'{line}.0')
+        widget.config(state=tk.DISABLED)
+
+    def _format_step_details(self, step) -> str:
+        if step is None:
+            return 'N/A'
+
+        lines = [f'Mode:    {step.mode.value}', f'Channel: {step.channel}']
+
+        if isinstance(step, CSStepMode0):
+            lines.append(f'Packet Quality:  {step.packet_quality.name}')
+            lines.append(
+                f'RSSI:            {step.packet_rssi} dBm'
+                if step.packet_rssi is not None
+                else 'RSSI:            N/A'
+            )
+            lines.append(f'Packet Antenna:  {step.packet_antenna}')
+            if step.measured_freq_offset is not None:
+                lines.append(f'Freq Offset:     {step.measured_freq_offset:.2f} × 0.01 ppm')
+
+        elif isinstance(step, CSStepMode2):
+            lines.append(f'Antenna Permutation: {step.antenna_permutation_index}')
+            for i, tone in enumerate(step.tones):
+                mag = math.sqrt(tone.pct_i ** 2 + tone.pct_q ** 2)
+                phase = math.atan2(tone.pct_q, tone.pct_i)
+                if tone.quality_extension_slot != ToneQualityIndicatorExtensionSlot.TONE_EXTENSION_NOT_EXPECTED:
+                    lines.append(
+                        f'Tone {i}:  I={tone.pct_i:<6} Q={tone.pct_q:<6} '
+                        f'Mag={mag:>8.2f}  Phase={phase:>7.4f}  '
+                        f'Quality={tone.quality.short_description()}'
+                    )
+                else:
+                    lines.append(f'Tone {i} (ext slot): Mag={mag:.2f}')
+
+        elif hasattr(step, 'raw_data'):
+            lines.append(f'Raw: {step.raw_data.hex()}')
+
+        return '\n'.join(lines)
 
     def _build_plots_tab(self, tab_frame: ttk.Frame):
         self.fig = Figure(figsize=(8, 8), dpi=100)
@@ -252,16 +474,6 @@ class CSViewer:
         update_handler = self._tab_update_handlers.get(self._active_tab_key)
         if update_handler is not None:
             update_handler()
-
-    def _update_stats_tab(self):
-        self._set_text_widget(
-            self.initiator_stats_text,
-            self._format_subevent_statistics(self._current_initiator)
-        )
-        self._set_text_widget(
-            self.reflector_stats_text,
-            self._format_subevent_statistics(self._current_reflector)
-        )
 
     def _update_plots_tab(self):
         self._update_phase_plot(self._current_phase_slope_data)
