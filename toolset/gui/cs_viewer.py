@@ -39,7 +39,14 @@ class CSViewer:
         self.gui_refresh_interval_ms = 100
         self._live_render_scheduled = False
         self._pending_live_counter: Optional[int] = None
-        self._all_counters_cache = set()
+        self._current_initiator: Optional[SubeventResults] = None
+        self._current_reflector: Optional[SubeventResults] = None
+        self._current_phase_slope_data: Optional[Dict[int, float]] = None
+        self._current_rssi_ini_data: Optional[Dict[int, float]] = None
+        self._current_rssi_ref_data: Optional[Dict[int, float]] = None
+        self._tab_update_handlers: Dict[str, Callable[[], None]] = {}
+        self._tab_indices: Dict[str, int] = {}
+        self._active_tab_key: Optional[str] = None
         self._phase_channels: tuple[int, ...] = ()
         self._rssi_ini_channels: tuple[int, ...] = ()
         self._rssi_ref_channels: tuple[int, ...] = ()
@@ -93,20 +100,51 @@ class CSViewer:
         )
         self.counter_spinbox.grid(row=0, column=2, sticky=(tk.W, tk.E), pady=5, padx=(10, 0))
 
-        ttk.Separator(main_frame, orient='horizontal').grid(row=1, column=0, columnspan=3, sticky=(tk.W, tk.E), pady=15)
+        self.notebook = ttk.Notebook(main_frame)
+        self.notebook.grid(row=1, column=0, columnspan=3, sticky=(tk.W, tk.E, tk.N, tk.S), pady=(10, 0))
+        self._create_tabs()
+        self.notebook.bind('<<NotebookTabChanged>>', self._on_tab_changed)
 
-        ttk.Label(main_frame, text="Initiator Statistics:").grid(row=2, column=0, sticky=tk.NW, pady=5)
-        self.initiator_stats_text = tk.Text(main_frame, height=2, width=90, wrap='word')
-        self.initiator_stats_text.grid(row=2, column=1, columnspan=2, sticky=(tk.W, tk.E), pady=5, padx=(10, 0))
+        main_frame.rowconfigure(1, weight=1)
+        main_frame.columnconfigure(2, weight=1)
+
+        self.root.rowconfigure(0, weight=1)
+        self.root.columnconfigure(0, weight=1)
+
+        self._active_tab_key = self._tab_key_from_index(self.notebook.index('current'))
+        self._update_display()
+
+    def _create_tabs(self):
+        self._register_tab('stats', 'Stats', self._build_stats_tab, self._update_stats_tab)
+        self._register_tab('plots', 'RSSI and phase slope', self._build_plots_tab, self._update_plots_tab)
+
+    def _register_tab(
+        self,
+        key: str,
+        title: str,
+        build_tab_content: Callable[[ttk.Frame], None],
+        update_tab_content: Callable[[], None],
+    ):
+        frame = ttk.Frame(self.notebook, padding='12')
+        self.notebook.add(frame, text=title)
+        build_tab_content(frame)
+        self._tab_update_handlers[key] = update_tab_content
+        self._tab_indices[key] = self.notebook.index('end') - 1
+
+    def _build_stats_tab(self, tab_frame: ttk.Frame):
+        ttk.Label(tab_frame, text='Initiator Statistics:').grid(row=0, column=0, sticky=tk.NW, pady=5)
+        self.initiator_stats_text = tk.Text(tab_frame, height=2, width=90, wrap='word')
+        self.initiator_stats_text.grid(row=0, column=1, sticky=(tk.W, tk.E), pady=5, padx=(10, 0))
         self.initiator_stats_text.config(state=tk.DISABLED)
 
-        ttk.Label(main_frame, text="Reflector Statistics:").grid(row=3, column=0, sticky=tk.NW, pady=5)
-        self.reflector_stats_text = tk.Text(main_frame, height=2, width=90, wrap='word')
-        self.reflector_stats_text.grid(row=3, column=1, columnspan=2, sticky=(tk.W, tk.E), pady=5, padx=(10, 0))
+        ttk.Label(tab_frame, text='Reflector Statistics:').grid(row=1, column=0, sticky=tk.NW, pady=5)
+        self.reflector_stats_text = tk.Text(tab_frame, height=2, width=90, wrap='word')
+        self.reflector_stats_text.grid(row=1, column=1, sticky=(tk.W, tk.E), pady=5, padx=(10, 0))
         self.reflector_stats_text.config(state=tk.DISABLED)
 
-        ttk.Separator(main_frame, orient='horizontal').grid(row=4, column=0, columnspan=3, sticky=(tk.W, tk.E), pady=15)
+        tab_frame.columnconfigure(1, weight=1)
 
+    def _build_plots_tab(self, tab_frame: ttk.Frame):
         self.fig = Figure(figsize=(8, 8), dpi=100)
         self.ax_phase = self.fig.add_subplot(211)
         self.ax_phase.set_xlabel('Channel Index')
@@ -122,19 +160,24 @@ class CSViewer:
 
         self.fig.tight_layout()
 
-        self.canvas = FigureCanvasTkAgg(self.fig, master=main_frame)
-        self.canvas.get_tk_widget().grid(row=5, column=0, columnspan=3, sticky=(tk.W, tk.E, tk.N, tk.S), pady=10)
+        self.canvas = FigureCanvasTkAgg(self.fig, master=tab_frame)
+        self.canvas.get_tk_widget().grid(row=0, column=0, sticky=(tk.W, tk.E, tk.N, tk.S))
 
         self._initialize_plot_artists()
         self.canvas.mpl_connect('draw_event', self._on_canvas_draw)
 
-        main_frame.rowconfigure(5, weight=1)
-        main_frame.columnconfigure(2, weight=1)
+        tab_frame.rowconfigure(0, weight=1)
+        tab_frame.columnconfigure(0, weight=1)
 
-        self.root.rowconfigure(0, weight=1)
-        self.root.columnconfigure(0, weight=1)
+    def _tab_key_from_index(self, tab_index: int) -> Optional[str]:
+        for key, index in self._tab_indices.items():
+            if index == tab_index:
+                return key
+        return None
 
-        self._update_display()
+    def _on_tab_changed(self, _event):
+        self._active_tab_key = self._tab_key_from_index(self.notebook.index('current'))
+        self._update_current_tab_content()
 
     def _initialize_plot_artists(self):
         self._phase_bars = self.ax_phase.bar([], [], color='steelblue', width=0.6, animated=True)
@@ -181,37 +224,49 @@ class CSViewer:
             counter_value = self.counter_var.get()
 
             if self.live_mode:
-                current_initiator = self.live_initiator
-                current_reflector = self.live_reflector
-
-                phase_slope_data = self.live_phase_slope
-                rssi_ini_data = self.live_rssi_ini
-                rssi_ref_data = self.live_rssi_ref
+                self._current_initiator = self.live_initiator
+                self._current_reflector = self.live_reflector
+                self._current_phase_slope_data = self.live_phase_slope
+                self._current_rssi_ini_data = self.live_rssi_ini
+                self._current_rssi_ref_data = self.live_rssi_ref
             else:
-                current_initiator = self.initiator_map.get(counter_value)
-                current_reflector = self.reflector_map.get(counter_value)
+                self._current_initiator = self.initiator_map.get(counter_value)
+                self._current_reflector = self.reflector_map.get(counter_value)
+                self._current_phase_slope_data = self.phase_slope_map.get(counter_value)
+                self._current_rssi_ini_data = self.rssi_ini_map.get(counter_value)
+                self._current_rssi_ref_data = self.rssi_ref_map.get(counter_value)
 
-                phase_slope_data = self.phase_slope_map.get(counter_value)
-                rssi_ini_data = self.rssi_ini_map.get(counter_value)
-                rssi_ref_data = self.rssi_ref_map.get(counter_value)
-
-            self._set_text_widget(
-                self.initiator_stats_text,
-                self._format_subevent_statistics(current_initiator, is_initiator=True)
-            )
-            self._set_text_widget(
-                self.reflector_stats_text,
-                self._format_subevent_statistics(current_reflector, is_initiator=False)
-            )
-
-            self._update_phase_plot(phase_slope_data)
-            self._update_rssi_plot(rssi_ini_data, rssi_ref_data)
-            self._render_plots()
+            self._update_current_tab_content()
 
         except Exception as e:
             print(f"[ERROR] Exception in _update_display: {type(e).__name__}: {e}")
             import traceback
             traceback.print_exc()
+
+    def _update_current_tab_content(self):
+        if self._active_tab_key is None:
+            self._active_tab_key = self._tab_key_from_index(self.notebook.index('current'))
+        if self._active_tab_key is None:
+            return
+
+        update_handler = self._tab_update_handlers.get(self._active_tab_key)
+        if update_handler is not None:
+            update_handler()
+
+    def _update_stats_tab(self):
+        self._set_text_widget(
+            self.initiator_stats_text,
+            self._format_subevent_statistics(self._current_initiator)
+        )
+        self._set_text_widget(
+            self.reflector_stats_text,
+            self._format_subevent_statistics(self._current_reflector)
+        )
+
+    def _update_plots_tab(self):
+        self._update_phase_plot(self._current_phase_slope_data)
+        self._update_rssi_plot(self._current_rssi_ini_data, self._current_rssi_ref_data)
+        self._render_plots()
 
     def update_live_data(self, initiator: SubeventResults, reflector: SubeventResults, phase_slope_data: Dict[int, float], rssi_data_ini: Dict[int, float], rssi_data_ref: Dict[int, float]):
         """Update live data from consumer thread - thread-safe"""
@@ -260,7 +315,7 @@ class CSViewer:
         widget.insert(tk.END, value)
         widget.config(state=tk.DISABLED)
 
-    def _format_subevent_statistics(self, subevent: Optional[SubeventResults], is_initiator: bool) -> str:
+    def _format_subevent_statistics(self, subevent: Optional[SubeventResults]) -> str:
         if subevent is None:
             return "waiting for data..." if self.live_mode else "none"
 
