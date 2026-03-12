@@ -76,8 +76,6 @@ def process_coupled_subevents(initiator: SubeventResults, reflector: SubeventRes
         reflector: Reflector subevent
         gui_callback: Optional callback to update GUI
     """
-    print(f"Proc {initiator.procedure_counter}: Ini={len(initiator.steps)} steps, Ref={len(reflector.steps)} steps")
-
     phase_slope_data = calculate_phase_slope_data(initiator, reflector)
     rssi_data_ini, rssi_data_ref = calculate_rssi_data(initiator, reflector)
 
