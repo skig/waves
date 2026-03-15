@@ -784,8 +784,9 @@ class CSViewer:
         ref_values = [rssi_ref_data[ch] for ch in ref_channels] if rssi_ref_data else []
         all_values = [*ini_values, *ref_values]
         self._rssi_bottom_dbm, self._rssi_top_dbm = self._rssi_plot_bounds(all_values)
-        ini_heights = [value - self._rssi_bottom_dbm for value in ini_values]
-        ref_heights = [value - self._rssi_bottom_dbm for value in ref_values]
+        bar_bottom = min(self._rssi_bottom_dbm, self._rssi_ylim[0])
+        ini_heights = [value - bar_bottom for value in ini_values]
+        ref_heights = [value - bar_bottom for value in ref_values]
 
         if ini_channels != self._rssi_ini_channels:
             if self._rssi_ini_bars is not None:
@@ -793,13 +794,13 @@ class CSViewer:
             ini_positions = [ch - self._bar_width / 2 for ch in ini_channels]
             self._rssi_ini_bars = self.ax_rssi.bar(ini_positions, ini_heights, width=self._bar_width,
                                                    color='blue', label='Initiator', alpha=0.8,
-                                                   bottom=self._rssi_bottom_dbm, animated=True)
+                                                   bottom=bar_bottom, animated=True)
             self._rssi_ini_channels = ini_channels
             self._force_full_redraw = True
         else:
             if self._rssi_ini_bars is not None:
                 for bar, value in zip(self._rssi_ini_bars.patches, ini_heights):
-                    bar.set_y(self._rssi_bottom_dbm)
+                    bar.set_y(bar_bottom)
                     bar.set_height(value)
 
         if ref_channels != self._rssi_ref_channels:
@@ -808,13 +809,13 @@ class CSViewer:
             ref_positions = [ch + self._bar_width / 2 for ch in ref_channels]
             self._rssi_ref_bars = self.ax_rssi.bar(ref_positions, ref_heights, width=self._bar_width,
                                                    color='red', label='Reflector', alpha=0.8,
-                                                   bottom=self._rssi_bottom_dbm, animated=True)
+                                                   bottom=bar_bottom, animated=True)
             self._rssi_ref_channels = ref_channels
             self._force_full_redraw = True
         else:
             if self._rssi_ref_bars is not None:
                 for bar, value in zip(self._rssi_ref_bars.patches, ref_heights):
-                    bar.set_y(self._rssi_bottom_dbm)
+                    bar.set_y(bar_bottom)
                     bar.set_height(value)
 
         self._update_rssi_limits(ini_channels, ref_channels, self._rssi_bottom_dbm, self._rssi_top_dbm)
