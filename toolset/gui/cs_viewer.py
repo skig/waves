@@ -1,6 +1,7 @@
 import tkinter as tk
 from tkinter import ttk
 import math
+from enum import Enum
 from typing import List, Optional, Callable, Dict
 from toolset.cs_utils.cs_subevent import SubeventResults
 from toolset.cs_utils.cs_step import (
@@ -24,6 +25,21 @@ _STEP_VIS_RECT_H = 28    # row height
 _STEP_VIS_STEP_GAP = 6   # horizontal gap between consecutive step groups
 _STEP_VIS_PAD_X = 8      # left/right canvas padding
 _STEP_VIS_PAD_Y = 5      # top/bottom canvas padding
+
+
+class _Color(str, Enum):
+    GREEN      = '#4caf50'
+    YELLOW     = '#ffeb3b'
+    RED        = '#f44336'
+    GREY       = '#9e9e9e'
+    LIGHT_GREY = '#cccccc'
+    WHITE      = '#ffffff'
+    OFF_WHITE  = '#f0f0f0'
+    DARK_GREY  = '#333333'
+    MID_GREY   = '#666666'
+    SILVER     = '#888888'
+    LIGHT_BLUE = '#add8e6'
+    DARK_BLUE  = '#1565c0'
 
 
 class CSViewer:
@@ -262,30 +278,30 @@ class CSViewer:
     def _get_step_cells(self, step, role: str) -> List[tuple]:
         """Return list of (label, bg_color, text_color) cells for one side of a step."""
         if step is None:
-            return [(role, '#cccccc', '#666666')]
+            return [(role, _Color.LIGHT_GREY, _Color.MID_GREY)]
 
         mode_num = step.mode.value
 
         if isinstance(step, CSStepMode0):
-            color = '#4caf50' if step.packet_quality == PacketQuality.AA_SUCCESS else '#f44336'
-            return [(f'{role}\n{mode_num}', color, 'white')]
+            color = _Color.GREEN if step.packet_quality == PacketQuality.AA_SUCCESS else _Color.RED
+            return [(f'{role}\n{mode_num}', color, _Color.WHITE)]
 
         if isinstance(step, CSStepMode2):
             cells = []
             for tone in step.tones:
                 if tone.quality_extension_slot == ToneQualityIndicatorExtensionSlot.TONE_EXTENSION_NOT_EXPECTED:
-                    color, fg = '#9e9e9e', '#333333'
+                    color, fg = _Color.GREY, _Color.DARK_GREY
                 elif tone.quality == ToneQualityIndicator.TONE_QUALITY_HIGH:
-                    color, fg = '#4caf50', 'white'
+                    color, fg = _Color.GREEN, _Color.WHITE
                 elif tone.quality == ToneQualityIndicator.TONE_QUALITY_MEDIUM:
-                    color, fg = '#ffeb3b', '#333333'
+                    color, fg = _Color.YELLOW, _Color.DARK_GREY
                 else:
-                    color, fg = '#f44336', 'white'
+                    color, fg = _Color.RED, _Color.WHITE
                 cells.append((f'{role}\n{mode_num}', color, fg))
-            return cells or [(f'{role}\n{mode_num}', '#9e9e9e', '#333333')]
+            return cells or [(f'{role}\n{mode_num}', _Color.GREY, _Color.DARK_GREY)]
 
         # Mode 1, 3, or unrecognised
-        return [(f'{role}\n{mode_num}', '#9e9e9e', '#333333')]
+        return [(f'{role}\n{mode_num}', _Color.GREY, _Color.DARK_GREY)]
 
     def _redraw_steps_canvas(self):
         canvas = self.steps_canvas
@@ -300,7 +316,7 @@ class CSViewer:
 
         if num_steps == 0:
             msg = 'waiting for data...' if self.live_mode else 'no data'
-            canvas.create_text(_STEP_VIS_PAD_X, canvas_h // 2, text=msg, anchor='w', fill='#888888')
+            canvas.create_text(_STEP_VIS_PAD_X, canvas_h // 2, text=msg, anchor='w', fill=_Color.SILVER)
             canvas.configure(scrollregion=(0, 0, 200, canvas_h))
             return
 
@@ -321,7 +337,7 @@ class CSViewer:
             for j, (label, bg, fg) in enumerate(all_cells):
                 cx = x + j * cell_w
                 canvas.create_rectangle(cx, y, cx + cell_w - 1, y + _STEP_VIS_RECT_H - 1,
-                                        fill=bg, outline='#888888', tags=step_tag)
+                                        fill=bg, outline=_Color.SILVER, tags=step_tag)
                 canvas.create_text(cx + cell_w // 2, y + _STEP_VIS_RECT_H // 2,
                                    text=label, font=('TkDefaultFont', 8), fill=fg,
                                    justify='center', tags=step_tag)
@@ -353,7 +369,7 @@ class CSViewer:
         y2 = _STEP_VIS_PAD_Y + _STEP_VIS_RECT_H + 2
         self.steps_canvas.create_rectangle(
             x1 - 1, y1, x2, y2,
-            outline='#1565c0', width=2, fill='', tags='step_highlight',
+            outline=_Color.DARK_BLUE, width=2, fill='', tags='step_highlight',
         )
         self.steps_canvas.tag_raise('step_highlight')
         # Scroll to keep the selected step visible
@@ -394,9 +410,9 @@ class CSViewer:
         ]
         widget.insert('1.0', '\n'.join(hex_rows))
 
-        widget.tag_configure('step_even', background='#f0f0f0')
-        widget.tag_configure('step_odd',  background='#ffffff')
-        widget.tag_configure('step_selected', background='#add8e6')
+        widget.tag_configure('step_even', background=_Color.OFF_WHITE)
+        widget.tag_configure('step_odd',  background=_Color.WHITE)
+        widget.tag_configure('step_selected', background=_Color.LIGHT_BLUE)
         widget.tag_raise('step_selected')
 
         for step_idx, (byte_start, byte_end) in enumerate(step_ranges):
