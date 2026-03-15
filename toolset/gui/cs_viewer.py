@@ -129,6 +129,7 @@ class CSViewer:
             command=self._on_counter_changed
         )
         self.counter_spinbox.grid(row=0, column=2, sticky=(tk.W, tk.E), pady=5, padx=(10, 0))
+        self.counter_spinbox.bind('<Return>', self._on_counter_enter)
 
         self.notebook = ttk.Notebook(main_frame)
         self.notebook.grid(row=1, column=0, columnspan=3, sticky=(tk.W, tk.E, tk.N, tk.S), pady=(10, 0))
@@ -609,6 +610,18 @@ class CSViewer:
         """Handle live mode checkbox toggle"""
         self.live_mode = self.live_var.get()
         self._update_display()
+
+    def _on_counter_enter(self, _event=None):
+        """Handle Enter key press in the counter spinbox."""
+        try:
+            value = int(self.counter_spinbox.get())
+            lo = int(float(self.counter_spinbox.cget('from')))
+            hi = int(float(self.counter_spinbox.cget('to')))
+            value = max(lo, min(hi, value))
+            self.counter_var.set(value)
+        except (ValueError, tk.TclError):
+            pass
+        self._on_counter_changed()
 
     def _on_counter_changed(self):
         """Handle spinbox counter change."""
