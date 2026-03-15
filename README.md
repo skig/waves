@@ -32,9 +32,11 @@ Using physical initiator and reflector boards:
 - `python3 run.py -i /dev/ttyACM1 -r /dev/ttyACM3 --uart --log-uart`, adjust COM-port names if needed
 
 Using pre-recorded logs:
-- `python3 run.py -i ini_log.txt -r ref_log.txt`
+- `python3 run.py -i tests/ini.txt -r tests/ref.txt`
 
 ## Current status
+
+<img src="imgs/screenshot.png" width="800"/>
 
 As of now the tool contains:
 - CS Initiator and Reflector samples based on Nordic Semiconductor Connect SDK 3.2.2. The samples perform channel sounding procedure and log raw CS data through UART to a PC.
