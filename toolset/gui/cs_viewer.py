@@ -267,6 +267,8 @@ class CSViewer:
         self._populate_hex_widget(self.ref_hex_text, self._current_reflector, self._ref_step_ranges)
         self._set_text_widget(self.step_details_text, 'Click on a step in the hex view to see details.')
         self._redraw_steps_canvas()
+        if self._ini_step_ranges or self._ref_step_ranges:
+            self._select_step(0)
 
     def _get_step_ranges(self, subevent: Optional[SubeventResults]) -> List[tuple]:
         if subevent is None or subevent.step_byte_ranges is None:
@@ -367,7 +369,7 @@ class CSViewer:
         y2 = _STEP_VIS_PAD_Y + _STEP_VIS_RECT_H + 2
         self.steps_canvas.create_rectangle(
             x1 - 1, y1, x2, y2,
-            outline=_Color.DARK_BLUE, width=2, fill='', tags='step_highlight',
+            outline=_Color.DARK_BLUE, width=5, fill='', tags='step_highlight',
         )
         self.steps_canvas.tag_raise('step_highlight')
         # Scroll to keep the selected step visible
@@ -610,6 +612,9 @@ class CSViewer:
 
     def _on_counter_changed(self):
         """Handle spinbox counter change."""
+        if self.live_mode:
+            self.live_mode = False
+            self.live_var.set(False)
         self._update_display()
 
     def _update_display(self):
