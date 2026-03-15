@@ -25,10 +25,14 @@ Embedded enthusiasts curious about Channel sounding under the hood.
 
 ## How to build and run
 
+Using physical initiator and reflector boards:
 - install NCS 3.2.2
 - build cs_ini and cs_ref samples (can skip if using prebuilt .hex for standard nrf54l15 devkits)
 - flash them to two nrf54l15dk boards
 - `python3 run.py -i /dev/ttyACM1 -r /dev/ttyACM3 --uart --log-uart`, adjust COM-port names if needed
+
+Using pre-recorded logs:
+- `python3 run.py -i ini_log.txt -r ref_log.txt`
 
 ## Current status
 
