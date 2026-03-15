@@ -833,7 +833,8 @@ class CSViewer:
             x_min, x_max = -1.0, 1.0
             y_min, y_max = -1.0, 1.0
 
-        new_ylim = (y_min, y_max)
+        # Grow-only: expand axes to fit new data, never shrink mid-session
+        new_ylim = (min(y_min, self._phase_ylim[0]), max(y_max, self._phase_ylim[1]))
         if self.ax_phase.get_xlim() != (x_min, x_max):
             self.ax_phase.set_xlim(x_min, x_max)
             self._force_full_redraw = True
@@ -858,7 +859,8 @@ class CSViewer:
             x_min, x_max = -1.0, 1.0
             y_min, y_max = -100.0, 0.0
 
-        new_ylim = (y_min, y_max)
+        # Grow-only: expand axes to fit new data, never shrink mid-session
+        new_ylim = (min(y_min, self._rssi_ylim[0]), max(y_max, self._rssi_ylim[1]))
         if self.ax_rssi.get_xlim() != (x_min, x_max):
             self.ax_rssi.set_xlim(x_min, x_max)
             self._force_full_redraw = True
@@ -868,45 +870,37 @@ class CSViewer:
             self._force_full_redraw = True
 
     def _render_plots(self):
-        if self._force_full_redraw or not self._supports_blit() or self._blit_background_phase is None or self._blit_background_rssi is None:
+        def _draw_bar_artists():
+            if self._phase_bars is not None:
+                for patch in self._phase_bars.patches:
+                    self.ax_phase.draw_artist(patch)
+            if self._rssi_ini_bars is not None:
+                for patch in self._rssi_ini_bars.patches:
+                    self.ax_rssi.draw_artist(patch)
+            if self._rssi_ref_bars is not None:
+                for patch in self._rssi_ref_bars.patches:
+                    self.ax_rssi.draw_artist(patch)
+
+        blit_ready = (
+            self._supports_blit()
+            and self._blit_background_phase is not None
+            and self._blit_background_rssi is not None
+        )
+
+        if self._force_full_redraw or not blit_ready:
             self.canvas.draw()
-            if self._supports_blit() and self._blit_background_phase is not None and self._blit_background_rssi is not None:
+            if blit_ready:
                 self.canvas.restore_region(self._blit_background_phase)
                 self.canvas.restore_region(self._blit_background_rssi)
-
-                if self._phase_bars is not None:
-                    for patch in self._phase_bars.patches:
-                        self.ax_phase.draw_artist(patch)
-
-                if self._rssi_ini_bars is not None:
-                    for patch in self._rssi_ini_bars.patches:
-                        self.ax_rssi.draw_artist(patch)
-
-                if self._rssi_ref_bars is not None:
-                    for patch in self._rssi_ref_bars.patches:
-                        self.ax_rssi.draw_artist(patch)
-
+                _draw_bar_artists()
                 self.canvas.blit(self.ax_phase.bbox)
                 self.canvas.blit(self.ax_rssi.bbox)
-            return
-
-        self.canvas.restore_region(self._blit_background_phase)
-        self.canvas.restore_region(self._blit_background_rssi)
-
-        if self._phase_bars is not None:
-            for patch in self._phase_bars.patches:
-                self.ax_phase.draw_artist(patch)
-
-        if self._rssi_ini_bars is not None:
-            for patch in self._rssi_ini_bars.patches:
-                self.ax_rssi.draw_artist(patch)
-
-        if self._rssi_ref_bars is not None:
-            for patch in self._rssi_ref_bars.patches:
-                self.ax_rssi.draw_artist(patch)
-
-        self.canvas.blit(self.ax_phase.bbox)
-        self.canvas.blit(self.ax_rssi.bbox)
+        else:
+            self.canvas.restore_region(self._blit_background_phase)
+            self.canvas.restore_region(self._blit_background_rssi)
+            _draw_bar_artists()
+            self.canvas.blit(self.ax_phase.bbox)
+            self.canvas.blit(self.ax_rssi.bbox)
 
     def run(self):
         """Start the GUI event loop"""
