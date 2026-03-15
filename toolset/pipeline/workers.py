@@ -16,7 +16,8 @@ def producer_worker(source: DataSource, output_queue: Queue, stop_event: Event):
         for data in source.read():
             if stop_event.is_set():
                 break
-            output_queue.put(data)
+            if data is not None:
+                output_queue.put(data)
     finally:
         output_queue.put(None)  # Sentinel
         source.close()
