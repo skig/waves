@@ -65,7 +65,7 @@ class CSViewer:
         self._rssi_top_dbm = 0.0
         self._bar_width = 0.35
 
-        # Stats-tab hex view state
+        # Subevent steps-tab hex view state
         self._selected_step_idx: Optional[int] = None
         self._ini_step_ranges: List[tuple] = []
         self._ref_step_ranges: List[tuple] = []
@@ -123,7 +123,7 @@ class CSViewer:
         self._update_display()
 
     def _create_tabs(self):
-        self._register_tab('stats', 'Stats', self._build_stats_tab, self._update_stats_tab)
+        self._register_tab('stats', 'Subevent steps', self._build_stats_tab, self._update_stats_tab)
         self._register_tab('plots', 'RSSI and phase slope', self._build_plots_tab, self._update_plots_tab)
 
     def _register_tab(
@@ -202,7 +202,7 @@ class CSViewer:
         container.grid(row=row, column=col, sticky=(tk.W, tk.E, tk.N, tk.S), padx=padx)
         container.rowconfigure(0, weight=1)
         container.columnconfigure(0, weight=1)
-        text = tk.Text(container, wrap='word', font=('Courier', 10), state=tk.DISABLED)
+        text = tk.Text(container, wrap='word', font=('Courier', 12), state=tk.DISABLED)
         sb = ttk.Scrollbar(container, orient=tk.VERTICAL, command=text.yview)
         text.configure(yscrollcommand=sb.set)
         text.grid(row=0, column=0, sticky=(tk.W, tk.E, tk.N, tk.S))
@@ -376,7 +376,7 @@ class CSViewer:
                         f'Quality={tone.quality.short_description()}'
                     )
                 else:
-                    lines.append(f'Tone {i} (ext slot): Mag={mag:.2f}')
+                    lines.append(f'Tone {i} (extension slot not expected): Mag={mag:.2f}')
 
         elif hasattr(step, 'raw_data'):
             lines.append(f'Raw: {step.raw_data.hex()}')
