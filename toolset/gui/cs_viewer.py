@@ -748,6 +748,8 @@ class CSViewer:
         if phase_slope_data and len(phase_slope_data) > 0:
             sorted_channels = tuple(sorted(phase_slope_data.keys()))
             phases = [phase_slope_data[ch] for ch in sorted_channels]
+            offset = phases[0]
+            phases = [v - offset for v in phases]
         else:
             sorted_channels = ()
             phases = []
