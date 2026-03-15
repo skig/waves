@@ -7,9 +7,7 @@ from toolset.cs_utils.cs_subevent import SubeventResults
 from toolset.cs_utils.cs_step import (
     CSMode,
     CSStepMode0,
-    CSStepMode1,
     CSStepMode2,
-    CSStepMode3,
     PacketQuality,
     ToneQualityIndicator,
     ToneQualityIndicatorExtensionSlot,
