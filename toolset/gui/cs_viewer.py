@@ -860,7 +860,7 @@ class CSViewer:
             y_min, y_max = y_bottom, y_top
         else:
             x_min, x_max = -1.0, 1.0
-            y_min, y_max = -100.0, 0.0
+            y_min, y_max = -50.0, -40.0
 
         # Grow-only: expand axes to fit new data, never shrink mid-session
         new_ylim = (min(y_min, self._rssi_ylim[0]), max(y_max, self._rssi_ylim[1]))
