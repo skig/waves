@@ -1,7 +1,6 @@
 import tkinter as tk
 from tkinter import ttk
 import math
-from enum import Enum
 from typing import List, Optional, Callable, Dict
 from toolset.cs_utils.cs_subevent import SubeventResults
 from toolset.cs_utils.cs_step import (
@@ -16,6 +15,11 @@ from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 from matplotlib.figure import Figure
 from matplotlib.container import BarContainer
 from matplotlib.patches import Patch
+from toolset.gui.cs_theme import _ThemeColors, LIGHT_THEME, DARK_THEME
+
+# Active theme - set by CSViewer.__init__ based on --dark / --light CLI flag.
+_Theme: _ThemeColors = DARK_THEME
+
 
 _STEP_VIS_CELL_W = 34    # width for a single-packet rect (modes 0, 1, 3)
 _STEP_VIS_TONE_W = 20    # width per tone rect (mode 2)
@@ -25,25 +29,10 @@ _STEP_VIS_PAD_X = 8      # left/right canvas padding
 _STEP_VIS_PAD_Y = 5      # top/bottom canvas padding
 
 
-class _Color(str, Enum):
-    GREEN      = '#4caf50'
-    YELLOW     = '#ffeb3b'
-    RED        = '#f44336'
-    GREY       = '#9e9e9e'
-    LIGHT_GREY = '#cccccc'
-    WHITE      = '#ffffff'
-    OFF_WHITE  = '#f0f0f0'
-    DARK_GREY  = '#333333'
-    MID_GREY   = '#666666'
-    SILVER     = '#888888'
-    LIGHT_BLUE = '#add8e6'
-    DARK_BLUE  = '#1565c0'
-
-
 class CSViewer:
     """GUI for viewing Channel Sounding data"""
 
-    def __init__(self, initiator_subevents: List = None, reflector_subevents: List = None):
+    def __init__(self, initiator_subevents: List = None, reflector_subevents: List = None, dark_mode: bool = True):
         self.initiator_subevents = initiator_subevents or []
         self.reflector_subevents = reflector_subevents or []
 
@@ -94,11 +83,62 @@ class CSViewer:
 
         all_counters = sorted(set(self.initiator_map.keys()) | set(self.reflector_map.keys()))
 
+        global _Theme
+        _Theme = DARK_THEME if dark_mode else LIGHT_THEME
+
         self.root = tk.Tk()
         self.root.title("Channel Sounding Viewer")
         self.root.geometry("1760x900")
+        self._apply_ttk_theme()
 
         self._create_widgets(all_counters)
+
+    def _apply_ttk_theme(self):
+        """Configure ttk styles to match the active theme."""
+        style = ttk.Style(self.root)
+        bg = _Theme.Background
+        fg = _Theme.Foreground
+        alt_bg = _Theme.AltBackground
+        border = _Theme.Border
+
+        if _Theme is DARK_THEME:
+            style.theme_use('clam')
+
+        # In dark mode suppress clam's built-in 3-D highlight/shadow by pinning
+        # lightcolor/darkcolor to the same value as the background.
+        relief_hi = alt_bg if _Theme is DARK_THEME else bg
+        relief_lo = bg    if _Theme is DARK_THEME else border
+        arrow_color = _Theme.SubtleForeground if _Theme is DARK_THEME else fg
+
+        style.configure('.', background=bg, foreground=fg, bordercolor=border,
+                        lightcolor=relief_hi, darkcolor=relief_lo,
+                        troughcolor=alt_bg, selectbackground=_Theme.Selection,
+                        selectforeground=fg)
+        style.configure('TFrame', background=bg)
+        style.configure('TLabel', background=bg, foreground=fg)
+        style.configure('TCheckbutton', background=bg, foreground=fg,
+                        bordercolor=border, lightcolor=relief_hi, darkcolor=relief_lo)
+        style.map('TCheckbutton',
+                  background=[('active', border)],
+                  indicatorcolor=[('selected', _Theme.SelectionBorder), ('!selected', alt_bg)])
+        style.configure('TNotebook', background=bg, bordercolor=border,
+                        lightcolor=relief_hi, darkcolor=relief_lo)
+        style.configure('TNotebook.Tab', background=alt_bg, foreground=fg, padding=[10, 4],
+                        bordercolor=border, lightcolor=relief_hi, darkcolor=relief_lo)
+        style.map('TNotebook.Tab',
+                  background=[('selected', bg)],
+                  foreground=[('selected', fg)],
+                  expand=[('selected', [1, 1, 1, 0])])
+        style.configure('TScrollbar', background=alt_bg, troughcolor=bg,
+                        arrowcolor=arrow_color, bordercolor=border,
+                        lightcolor=relief_hi, darkcolor=relief_lo, gripcount=0)
+        style.map('TScrollbar', background=[('active', border), ('!active', alt_bg)])
+        style.configure('TSpinbox', fieldbackground=alt_bg, background=alt_bg,
+                        foreground=fg, arrowcolor=arrow_color, bordercolor=border,
+                        lightcolor=relief_hi, darkcolor=relief_lo,
+                        insertcolor=fg, selectbackground=_Theme.Selection,
+                        selectforeground=fg)
+        self.root.configure(bg=bg)
 
     def _create_widgets(self, procedure_counters: List[int]):
         """Create GUI widgets"""
@@ -169,12 +209,20 @@ class CSViewer:
         stats_frame.columnconfigure(1, weight=1)
 
         ttk.Label(stats_frame, text='Initiator Statistics:').grid(row=0, column=0, sticky=tk.NW, pady=3)
-        self.initiator_stats_text = tk.Text(stats_frame, height=2, wrap='word')
+        self.initiator_stats_text = tk.Text(
+            stats_frame, height=2, wrap='word',
+            bg=_Theme.Background, fg=_Theme.Foreground,
+            insertbackground=_Theme.Foreground,
+        )
         self.initiator_stats_text.grid(row=0, column=1, sticky=(tk.W, tk.E), pady=3, padx=(10, 0))
         self.initiator_stats_text.config(state=tk.DISABLED)
 
         ttk.Label(stats_frame, text='Reflector Statistics:').grid(row=1, column=0, sticky=tk.NW, pady=3)
-        self.reflector_stats_text = tk.Text(stats_frame, height=2, wrap='word')
+        self.reflector_stats_text = tk.Text(
+            stats_frame, height=2, wrap='word',
+            bg=_Theme.Background, fg=_Theme.Foreground,
+            insertbackground=_Theme.Foreground,
+        )
         self.reflector_stats_text.grid(row=1, column=1, sticky=(tk.W, tk.E), pady=3, padx=(10, 0))
         self.reflector_stats_text.config(state=tk.DISABLED)
 
@@ -190,7 +238,7 @@ class CSViewer:
         canvas_container.columnconfigure(0, weight=1)
 
         _canvas_h = _STEP_VIS_PAD_Y * 2 + _STEP_VIS_RECT_H
-        self.steps_canvas = tk.Canvas(canvas_container, height=_canvas_h, bg='white', cursor='arrow')
+        self.steps_canvas = tk.Canvas(canvas_container, height=_canvas_h, bg=_Theme.CanvasBackground, cursor='arrow')
         steps_hscroll = ttk.Scrollbar(canvas_container, orient=tk.HORIZONTAL, command=self.steps_canvas.xview)
         self.steps_canvas.configure(xscrollcommand=steps_hscroll.set)
         self.steps_canvas.grid(row=0, column=0, sticky=(tk.W, tk.E))
@@ -231,7 +279,9 @@ class CSViewer:
         container.rowconfigure(0, weight=1)
         container.columnconfigure(0, weight=1)
         text = tk.Text(container, wrap='none', font=('Courier', 12),
-                       state=tk.DISABLED, cursor='arrow', width=50)
+                       state=tk.DISABLED, cursor='arrow', width=50,
+                       bg=_Theme.Background, fg=_Theme.Foreground,
+                       insertbackground=_Theme.Foreground)
         sb_y = ttk.Scrollbar(container, orient=tk.VERTICAL, command=text.yview)
         sb_x = ttk.Scrollbar(container, orient=tk.HORIZONTAL, command=text.xview)
         text.configure(yscrollcommand=sb_y.set, xscrollcommand=sb_x.set)
@@ -245,7 +295,9 @@ class CSViewer:
         container.grid(row=row, column=col, sticky=(tk.W, tk.E, tk.N, tk.S), padx=padx)
         container.rowconfigure(0, weight=1)
         container.columnconfigure(0, weight=1)
-        text = tk.Text(container, wrap='word', font=('Courier', 12), state=tk.DISABLED)
+        text = tk.Text(container, wrap='word', font=('Courier', 12), state=tk.DISABLED,
+                       bg=_Theme.Background, fg=_Theme.Foreground,
+                       insertbackground=_Theme.Foreground)
         sb = ttk.Scrollbar(container, orient=tk.VERTICAL, command=text.yview)
         text.configure(yscrollcommand=sb.set)
         text.grid(row=0, column=0, sticky=(tk.W, tk.E, tk.N, tk.S))
@@ -279,30 +331,33 @@ class CSViewer:
     def _get_step_cells(self, step, role: str) -> List[tuple]:
         """Return list of (label, bg_color, text_color) cells for one side of a step."""
         if step is None:
-            return [(role, _Color.LIGHT_GREY, _Color.MID_GREY)]
+            return [(role, _Theme.StepMissingBackground, _Theme.StepMissingForeground)]
 
         mode_num = step.mode.value
 
         if isinstance(step, CSStepMode0):
-            color = _Color.GREEN if step.packet_quality == PacketQuality.AA_SUCCESS else _Color.RED
-            return [(f'{role}\n{mode_num}', color, _Color.WHITE)]
+            if step.packet_quality == PacketQuality.AA_SUCCESS:
+                bg, fg = _Theme.StepGoodBackground, _Theme.StepGoodForeground
+            else:
+                bg, fg = _Theme.StepBadBackground, _Theme.StepBadForeground
+            return [(f'{role}\n{mode_num}', bg, fg)]
 
         if isinstance(step, CSStepMode2):
             cells = []
             for tone in step.tones:
                 if tone.quality_extension_slot == ToneQualityIndicatorExtensionSlot.TONE_EXTENSION_NOT_EXPECTED:
-                    color, fg = _Color.GREY, _Color.DARK_GREY
+                    color, fg = _Theme.ToneExtensionBackground, _Theme.ToneExtensionForeground
                 elif tone.quality == ToneQualityIndicator.TONE_QUALITY_HIGH:
-                    color, fg = _Color.GREEN, _Color.WHITE
+                    color, fg = _Theme.ToneHighBackground, _Theme.ToneHighForeground
                 elif tone.quality == ToneQualityIndicator.TONE_QUALITY_MEDIUM:
-                    color, fg = _Color.YELLOW, _Color.DARK_GREY
+                    color, fg = _Theme.ToneMediumBackground, _Theme.ToneMediumForeground
                 else:
-                    color, fg = _Color.RED, _Color.WHITE
+                    color, fg = _Theme.ToneLowBackground, _Theme.ToneLowForeground
                 cells.append((f'{role}\n{mode_num}', color, fg))
-            return cells or [(f'{role}\n{mode_num}', _Color.GREY, _Color.DARK_GREY)]
+            return cells or [(f'{role}\n{mode_num}', _Theme.StepDefaultBackground, _Theme.StepDefaultForeground)]
 
         # Mode 1, 3, or unrecognised
-        return [(f'{role}\n{mode_num}', _Color.GREY, _Color.DARK_GREY)]
+        return [(f'{role}\n{mode_num}', _Theme.StepDefaultBackground, _Theme.StepDefaultForeground)]
 
     def _redraw_steps_canvas(self):
         canvas = self.steps_canvas
@@ -317,7 +372,7 @@ class CSViewer:
 
         if num_steps == 0:
             msg = 'waiting for data...' if self.live_mode else 'no data'
-            canvas.create_text(_STEP_VIS_PAD_X, canvas_h // 2, text=msg, anchor='w', fill=_Color.SILVER)
+            canvas.create_text(_STEP_VIS_PAD_X, canvas_h // 2, text=msg, anchor='w', fill=_Theme.SubtleForeground)
             canvas.configure(scrollregion=(0, 0, 200, canvas_h))
             return
 
@@ -338,7 +393,7 @@ class CSViewer:
             for j, (label, bg, fg) in enumerate(all_cells):
                 cx = x + j * cell_w
                 canvas.create_rectangle(cx, y, cx + cell_w - 1, y + _STEP_VIS_RECT_H - 1,
-                                        fill=bg, outline=_Color.SILVER, tags=step_tag)
+                                        fill=bg, outline=_Theme.Border, tags=step_tag)
                 canvas.create_text(cx + cell_w // 2, y + _STEP_VIS_RECT_H // 2,
                                    text=label, font=('TkDefaultFont', 8), fill=fg,
                                    justify='center', tags=step_tag)
@@ -370,7 +425,7 @@ class CSViewer:
         y2 = _STEP_VIS_PAD_Y + _STEP_VIS_RECT_H + 2
         self.steps_canvas.create_rectangle(
             x1 - 1, y1, x2, y2,
-            outline=_Color.DARK_BLUE, width=5, fill='', tags='step_highlight',
+            outline=_Theme.SelectionBorder, width=5, fill='', tags='step_highlight',
         )
         self.steps_canvas.tag_raise('step_highlight')
         # Scroll to keep the selected step visible
@@ -411,9 +466,9 @@ class CSViewer:
         ]
         widget.insert('1.0', '\n'.join(hex_rows))
 
-        widget.tag_configure('step_even', background=_Color.OFF_WHITE)
-        widget.tag_configure('step_odd',  background=_Color.WHITE)
-        widget.tag_configure('step_selected', background=_Color.LIGHT_BLUE)
+        widget.tag_configure('step_even', background=_Theme.AltBackground)
+        widget.tag_configure('step_odd',  background=_Theme.Background)
+        widget.tag_configure('step_selected', background=_Theme.Selection)
         widget.tag_raise('step_selected')
 
         for step_idx, (byte_start, byte_end) in enumerate(step_ranges):
@@ -541,24 +596,38 @@ class CSViewer:
 
         return '\n'.join(lines)
 
+    def _apply_plot_theme(self):
+        """Apply the current theme colors to the matplotlib figure and axes."""
+        self.fig.patch.set_facecolor(_Theme.PlotBackground)
+        for ax in (self.ax_phase, self.ax_rssi):
+            ax.set_facecolor(_Theme.PlotBackground)
+            ax.tick_params(colors=_Theme.PlotForeground, which='both')
+            ax.xaxis.label.set_color(_Theme.PlotForeground)
+            ax.yaxis.label.set_color(_Theme.PlotForeground)
+            ax.title.set_color(_Theme.PlotForeground)
+            for spine in ax.spines.values():
+                spine.set_edgecolor(_Theme.Border)
+            ax.grid(True, color=_Theme.PlotGridColor)
+
     def _build_plots_tab(self, tab_frame: ttk.Frame):
         self.fig = Figure(figsize=(8, 8), dpi=100)
         self.ax_phase = self.fig.add_subplot(211)
         self.ax_phase.set_xlabel('Channel Index')
         self.ax_phase.set_ylabel('Sum of Phases')
         self.ax_phase.set_title('Phase Slope')
-        self.ax_phase.grid(True)
 
         self.ax_rssi = self.fig.add_subplot(212)
         self.ax_rssi.set_xlabel('Channel Index')
         self.ax_rssi.set_ylabel('RSSI Magnitude, dBm')
         self.ax_rssi.set_title('RSSI Values')
-        self.ax_rssi.grid(True)
 
+        self._apply_plot_theme()
         self.fig.tight_layout()
 
         self.canvas = FigureCanvasTkAgg(self.fig, master=tab_frame)
-        self.canvas.get_tk_widget().grid(row=0, column=0, sticky=(tk.W, tk.E, tk.N, tk.S))
+        tk_widget = self.canvas.get_tk_widget()
+        tk_widget.configure(bg=_Theme.PlotBackground)
+        tk_widget.grid(row=0, column=0, sticky=(tk.W, tk.E, tk.N, tk.S))
 
         self._initialize_plot_artists()
         self.canvas.mpl_connect('draw_event', self._on_canvas_draw)
@@ -577,23 +646,27 @@ class CSViewer:
         self._update_current_tab_content()
 
     def _initialize_plot_artists(self):
-        self._phase_bars = self.ax_phase.bar([], [], color='steelblue', width=0.6, animated=True)
+        self._phase_bars = self.ax_phase.bar([], [], color=_Theme.PlotPhaseBarColor, width=0.6, animated=True)
         self._rssi_ini_bars = self.ax_rssi.bar([], [], width=self._bar_width,
-                                              color='blue', label='Initiator', alpha=0.8,
+                                              color=_Theme.PlotIniBarColor, label='Initiator', alpha=0.8,
                                               bottom=self._rssi_bottom_dbm, animated=True)
         self._rssi_ref_bars = self.ax_rssi.bar([], [], width=self._bar_width,
-                                              color='red', label='Reflector', alpha=0.8,
+                                              color=_Theme.PlotRefBarColor, label='Reflector', alpha=0.8,
                                               bottom=self._rssi_bottom_dbm, animated=True)
         self._update_rssi_legend()
         self._force_full_redraw = True
 
     def _update_rssi_legend(self):
         handles = [
-            Patch(facecolor='blue', edgecolor='blue', alpha=0.8, label='Initiator'),
-            Patch(facecolor='red', edgecolor='red', alpha=0.8, label='Reflector'),
+            Patch(facecolor=_Theme.PlotIniBarColor, edgecolor=_Theme.PlotIniBarColor,
+                  alpha=0.8, label='Initiator'),
+            Patch(facecolor=_Theme.PlotRefBarColor, edgecolor=_Theme.PlotRefBarColor,
+                  alpha=0.8, label='Reflector'),
         ]
         legend = self.ax_rssi.legend(handles=handles)
-        for text, color in zip(legend.get_texts(), ('blue', 'red')):
+        legend.get_frame().set_facecolor(_Theme.PlotBackground)
+        legend.get_frame().set_edgecolor(_Theme.Border)
+        for text, color in zip(legend.get_texts(), (_Theme.PlotIniBarColor, _Theme.PlotRefBarColor)):
             text.set_color(color)
 
     def _on_canvas_draw(self, _event):
@@ -775,7 +848,7 @@ class CSViewer:
         if sorted_channels != self._phase_channels:
             if self._phase_bars is not None:
                 self._phase_bars.remove()
-            self._phase_bars = self.ax_phase.bar(sorted_channels, phases, color='steelblue', width=0.6, animated=True)
+            self._phase_bars = self.ax_phase.bar(sorted_channels, phases, color=_Theme.PlotPhaseBarColor, width=0.6, animated=True)
             self._phase_channels = sorted_channels
             self._force_full_redraw = True
         else:
@@ -811,7 +884,7 @@ class CSViewer:
                 self._rssi_ini_bars.remove()
             ini_positions = [ch - self._bar_width / 2 for ch in ini_channels]
             self._rssi_ini_bars = self.ax_rssi.bar(ini_positions, ini_heights, width=self._bar_width,
-                                                   color='blue', label='Initiator', alpha=0.8,
+                                                   color=_Theme.PlotIniBarColor, label='Initiator', alpha=0.8,
                                                    bottom=bar_bottom, animated=True)
             self._rssi_ini_channels = ini_channels
             self._force_full_redraw = True
@@ -826,7 +899,7 @@ class CSViewer:
                 self._rssi_ref_bars.remove()
             ref_positions = [ch + self._bar_width / 2 for ch in ref_channels]
             self._rssi_ref_bars = self.ax_rssi.bar(ref_positions, ref_heights, width=self._bar_width,
-                                                   color='red', label='Reflector', alpha=0.8,
+                                                   color=_Theme.PlotRefBarColor, label='Reflector', alpha=0.8,
                                                    bottom=bar_bottom, animated=True)
             self._rssi_ref_channels = ref_channels
             self._force_full_redraw = True
@@ -928,7 +1001,7 @@ class CSViewer:
         self.root.mainloop()
 
 
-def launch_viewer(initiator_subevents: List = None, reflector_subevents: List = None):
+def launch_viewer(initiator_subevents: List = None, reflector_subevents: List = None, dark_mode: bool = True):
     """Launch the CS Viewer GUI"""
-    viewer = CSViewer(initiator_subevents, reflector_subevents)
+    viewer = CSViewer(initiator_subevents, reflector_subevents, dark_mode=dark_mode)
     return viewer

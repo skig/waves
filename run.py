@@ -42,6 +42,21 @@ def main():
         help='Write raw UART data to log files in log/ folder'
     )
 
+    theme_group = parser.add_mutually_exclusive_group()
+    theme_group.add_argument(
+        '--dark',
+        dest='dark_mode',
+        action='store_true',
+        default=True,
+        help='Use dark theme (default)'
+    )
+    theme_group.add_argument(
+        '--light',
+        dest='dark_mode',
+        action='store_false',
+        help='Use light theme'
+    )
+
     args = parser.parse_args()
 
     # Validate arguments
@@ -88,7 +103,7 @@ def main():
         name="ReflectorProducer"
     )
 
-    viewer = launch_viewer()
+    viewer = launch_viewer(dark_mode=args.dark_mode)
 
     consumer = Thread(
         target=dual_stream_consumer,
