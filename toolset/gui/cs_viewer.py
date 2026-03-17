@@ -927,8 +927,7 @@ class CSViewer:
             x_min, x_max = -1.0, 1.0
             y_min, y_max = -1.0, 1.0
 
-        # Grow-only: expand axes to fit new data, never shrink mid-session
-        new_ylim = (min(y_min, self._phase_ylim[0]), max(y_max, self._phase_ylim[1]))
+        new_ylim = (y_min, y_max)
         if self.ax_phase.get_xlim() != (x_min, x_max):
             self.ax_phase.set_xlim(x_min, x_max)
             self._force_full_redraw = True
@@ -953,8 +952,7 @@ class CSViewer:
             x_min, x_max = -1.0, 1.0
             y_min, y_max = -50.0, -40.0
 
-        # Grow-only: expand axes to fit new data, never shrink mid-session
-        new_ylim = (min(y_min, self._rssi_ylim[0]), max(y_max, self._rssi_ylim[1]))
+        new_ylim = (y_min, y_max)
         if self.ax_rssi.get_xlim() != (x_min, x_max):
             self.ax_rssi.set_xlim(x_min, x_max)
             self._force_full_redraw = True
