@@ -1,6 +1,7 @@
 import tkinter as tk
 from tkinter import ttk
 import math
+import numpy as np
 from typing import List, Optional, Callable, Dict
 from toolset.cs_utils.cs_subevent import SubeventResults
 from toolset.cs_utils.cs_step import (
@@ -13,7 +14,7 @@ from toolset.cs_utils.cs_step import (
 )
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 from matplotlib.figure import Figure
-from matplotlib.container import BarContainer
+from matplotlib.collections import PolyCollection
 from matplotlib.patches import Patch
 from toolset.gui.cs_theme import _ThemeColors, LIGHT_THEME, DARK_THEME
 
@@ -63,12 +64,12 @@ class CSViewer:
         self._phase_channels: tuple[int, ...] = ()
         self._rssi_ini_channels: tuple[int, ...] = ()
         self._rssi_ref_channels: tuple[int, ...] = ()
-        self._phase_bars: Optional[BarContainer] = None
-        self._rssi_ini_bars: Optional[BarContainer] = None
-        self._rssi_ref_bars: Optional[BarContainer] = None
-        self._blit_background_phase = None
-        self._blit_background_rssi = None
+        self._phase_collection: Optional[PolyCollection] = None
+        self._rssi_ini_collection: Optional[PolyCollection] = None
+        self._rssi_ref_collection: Optional[PolyCollection] = None
+        self._blit_background = None
         self._force_full_redraw = True
+        self._bg_refresh_pending = False
         self._phase_ylim = (-1.0, 1.0)
         self._rssi_ylim = (-1.0, 1.0)
         self._rssi_bottom_dbm = -100.0
@@ -646,13 +647,15 @@ class CSViewer:
         self._update_current_tab_content()
 
     def _initialize_plot_artists(self):
-        self._phase_bars = self.ax_phase.bar([], [], color=_Theme.PlotPhaseBarColor, width=0.6, animated=True)
-        self._rssi_ini_bars = self.ax_rssi.bar([], [], width=self._bar_width,
-                                              color=_Theme.PlotIniBarColor, label='Initiator', alpha=0.8,
-                                              bottom=self._rssi_bottom_dbm, animated=True)
-        self._rssi_ref_bars = self.ax_rssi.bar([], [], width=self._bar_width,
-                                              color=_Theme.PlotRefBarColor, label='Reflector', alpha=0.8,
-                                              bottom=self._rssi_bottom_dbm, animated=True)
+        self._phase_collection = PolyCollection([], facecolors=[_Theme.PlotPhaseBarColor],
+                                                edgecolors=['none'], antialiaseds=False, animated=True)
+        self.ax_phase.add_collection(self._phase_collection)
+        self._rssi_ini_collection = PolyCollection([], facecolors=[_Theme.PlotIniBarColor],
+                                                   edgecolors=['none'], antialiaseds=False, alpha=0.8, animated=True)
+        self.ax_rssi.add_collection(self._rssi_ini_collection)
+        self._rssi_ref_collection = PolyCollection([], facecolors=[_Theme.PlotRefBarColor],
+                                                   edgecolors=['none'], antialiaseds=False, alpha=0.8, animated=True)
+        self.ax_rssi.add_collection(self._rssi_ref_collection)
         self._update_rssi_legend()
         self._force_full_redraw = True
 
@@ -672,12 +675,11 @@ class CSViewer:
     def _on_canvas_draw(self, _event):
         if not self._supports_blit():
             return
-        self._blit_background_phase = self.canvas.copy_from_bbox(self.ax_phase.bbox)
-        self._blit_background_rssi = self.canvas.copy_from_bbox(self.ax_rssi.bbox)
+        self._blit_background = self.canvas.copy_from_bbox(self.fig.bbox)
         self._force_full_redraw = False
 
     def _supports_blit(self) -> bool:
-        return bool(getattr(self.canvas, 'supports_blit', False))
+        return hasattr(self.canvas, 'copy_from_bbox')
 
     def _on_live_toggled(self):
         """Handle live mode checkbox toggle"""
@@ -834,6 +836,21 @@ class CSViewer:
             f"Mode-2 steps: {total_num_mode2} ({num_good}, {num_medium}, {num_low})"
         )
 
+    @staticmethod
+    def _bar_verts(positions, heights, width, bottom=0.0):
+        n = len(positions)
+        if n == 0:
+            return np.empty((0, 4, 2))
+        hw = width / 2
+        x = np.asarray(positions, dtype=np.float64)
+        h = np.asarray(heights, dtype=np.float64)
+        verts = np.empty((n, 4, 2), dtype=np.float64)
+        verts[:, 0, 0] = x - hw;  verts[:, 0, 1] = bottom
+        verts[:, 1, 0] = x - hw;  verts[:, 1, 1] = bottom + h
+        verts[:, 2, 0] = x + hw;  verts[:, 2, 1] = bottom + h
+        verts[:, 3, 0] = x + hw;  verts[:, 3, 1] = bottom
+        return verts
+
     def _update_phase_plot(self, phase_slope_data: Optional[Dict[int, float]]):
         """Update the phase slope plot"""
         if phase_slope_data and len(phase_slope_data) > 0:
@@ -846,16 +863,10 @@ class CSViewer:
             phases = []
 
         if sorted_channels != self._phase_channels:
-            if self._phase_bars is not None:
-                self._phase_bars.remove()
-            self._phase_bars = self.ax_phase.bar(sorted_channels, phases, color=_Theme.PlotPhaseBarColor, width=0.6, animated=True)
             self._phase_channels = sorted_channels
             self._force_full_redraw = True
-        else:
-            if self._phase_bars is not None:
-                for bar, value in zip(self._phase_bars.patches, phases):
-                    bar.set_height(value)
 
+        self._phase_collection.set_verts(self._bar_verts(sorted_channels, phases, 0.6))
         self._update_phase_limits(sorted_channels, phases)
 
     def _rssi_plot_bounds(self, values: List[float]) -> tuple[int, int]:
@@ -880,34 +891,17 @@ class CSViewer:
         ref_heights = [value - bar_bottom for value in ref_values]
 
         if ini_channels != self._rssi_ini_channels:
-            if self._rssi_ini_bars is not None:
-                self._rssi_ini_bars.remove()
-            ini_positions = [ch - self._bar_width / 2 for ch in ini_channels]
-            self._rssi_ini_bars = self.ax_rssi.bar(ini_positions, ini_heights, width=self._bar_width,
-                                                   color=_Theme.PlotIniBarColor, label='Initiator', alpha=0.8,
-                                                   bottom=bar_bottom, animated=True)
             self._rssi_ini_channels = ini_channels
             self._force_full_redraw = True
-        else:
-            if self._rssi_ini_bars is not None:
-                for bar, value in zip(self._rssi_ini_bars.patches, ini_heights):
-                    bar.set_y(bar_bottom)
-                    bar.set_height(value)
 
         if ref_channels != self._rssi_ref_channels:
-            if self._rssi_ref_bars is not None:
-                self._rssi_ref_bars.remove()
-            ref_positions = [ch + self._bar_width / 2 for ch in ref_channels]
-            self._rssi_ref_bars = self.ax_rssi.bar(ref_positions, ref_heights, width=self._bar_width,
-                                                   color=_Theme.PlotRefBarColor, label='Reflector', alpha=0.8,
-                                                   bottom=bar_bottom, animated=True)
             self._rssi_ref_channels = ref_channels
             self._force_full_redraw = True
-        else:
-            if self._rssi_ref_bars is not None:
-                for bar, value in zip(self._rssi_ref_bars.patches, ref_heights):
-                    bar.set_y(bar_bottom)
-                    bar.set_height(value)
+
+        ini_positions = [ch - self._bar_width / 2 for ch in ini_channels]
+        ref_positions = [ch + self._bar_width / 2 for ch in ref_channels]
+        self._rssi_ini_collection.set_verts(self._bar_verts(ini_positions, ini_heights, self._bar_width, bar_bottom))
+        self._rssi_ref_collection.set_verts(self._bar_verts(ref_positions, ref_heights, self._bar_width, bar_bottom))
 
         self._update_rssi_limits(ini_channels, ref_channels, self._rssi_bottom_dbm, self._rssi_top_dbm)
 
@@ -923,6 +917,9 @@ class CSViewer:
             if y_min == y_max:
                 y_min -= 1.0
                 y_max += 1.0
+            # Round to nearest 1.0 so small data changes don't force a full redraw
+            y_min = math.floor(y_min)
+            y_max = math.ceil(y_max)
         else:
             x_min, x_max = -1.0, 1.0
             y_min, y_max = -1.0, 1.0
@@ -963,36 +960,50 @@ class CSViewer:
 
     def _render_plots(self):
         def _draw_bar_artists():
-            if self._phase_bars is not None:
-                for patch in self._phase_bars.patches:
-                    self.ax_phase.draw_artist(patch)
-            if self._rssi_ini_bars is not None:
-                for patch in self._rssi_ini_bars.patches:
-                    self.ax_rssi.draw_artist(patch)
-            if self._rssi_ref_bars is not None:
-                for patch in self._rssi_ref_bars.patches:
-                    self.ax_rssi.draw_artist(patch)
+            if self._phase_collection is not None:
+                self.ax_phase.draw_artist(self._phase_collection)
+            if self._rssi_ini_collection is not None:
+                self.ax_rssi.draw_artist(self._rssi_ini_collection)
+            if self._rssi_ref_collection is not None:
+                self.ax_rssi.draw_artist(self._rssi_ref_collection)
 
         blit_ready = (
             self._supports_blit()
-            and self._blit_background_phase is not None
-            and self._blit_background_rssi is not None
+            and self._blit_background is not None
         )
 
-        if self._force_full_redraw or not blit_ready:
+        if not blit_ready:
+            # First render ever - must do synchronous full draw
             self.canvas.draw()
-            if blit_ready:
-                self.canvas.restore_region(self._blit_background_phase)
-                self.canvas.restore_region(self._blit_background_rssi)
+            self._force_full_redraw = False
+            if self._blit_background is not None:
+                self.canvas.restore_region(self._blit_background)
                 _draw_bar_artists()
-                self.canvas.blit(self.ax_phase.bbox)
-                self.canvas.blit(self.ax_rssi.bbox)
+                self.canvas.blit(self.fig.bbox)
         else:
-            self.canvas.restore_region(self._blit_background_phase)
-            self.canvas.restore_region(self._blit_background_rssi)
+            # Fast path: always blit bars on existing background
+            self.canvas.restore_region(self._blit_background)
             _draw_bar_artists()
-            self.canvas.blit(self.ax_phase.bbox)
-            self.canvas.blit(self.ax_rssi.bbox)
+            self.canvas.blit(self.fig.bbox)
+            # If axes limits changed, schedule deferred background refresh
+            if self._force_full_redraw and not self._bg_refresh_pending:
+                self._bg_refresh_pending = True
+                self.root.after_idle(self._deferred_bg_refresh)
+
+    def _deferred_bg_refresh(self):
+        """Redraw axes/ticks/grid in the background, then re-blit bar artists."""
+        self._bg_refresh_pending = False
+        self._force_full_redraw = False
+        self.canvas.draw()
+        if self._blit_background is not None:
+            self.canvas.restore_region(self._blit_background)
+            if self._phase_collection is not None:
+                self.ax_phase.draw_artist(self._phase_collection)
+            if self._rssi_ini_collection is not None:
+                self.ax_rssi.draw_artist(self._rssi_ini_collection)
+            if self._rssi_ref_collection is not None:
+                self.ax_rssi.draw_artist(self._rssi_ref_collection)
+            self.canvas.blit(self.fig.bbox)
 
     def run(self):
         """Start the GUI event loop"""
