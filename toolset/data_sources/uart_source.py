@@ -9,7 +9,7 @@ class UartDataSource(DataSource):
     START_MARKER = "I: CS Subevent result received:"
     END_MARKER = "I: CS Subevent end"
 
-    def __init__(self, port: str, baudrate: int = 115200, log_file: Optional[str] = None):
+    def __init__(self, port: str, baudrate: int = 1000000, log_file: Optional[str] = None):
         self.port = port
         self.baudrate = baudrate
         self.serial_conn = None

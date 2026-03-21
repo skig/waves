@@ -83,8 +83,8 @@ def main():
 
     if args.uart:
         print("Mode: Reading from COM-ports")
-        initiator_source = UartDataSource(args.initiator, baudrate=115200, log_file=initiator_log_file)
-        reflector_source = UartDataSource(args.reflector, baudrate=115200, log_file=reflector_log_file)
+        initiator_source = UartDataSource(args.initiator, baudrate=1000000, log_file=initiator_log_file)
+        reflector_source = UartDataSource(args.reflector, baudrate=1000000, log_file=reflector_log_file)
 
     else:
         print("Mode: Reading from log files")
