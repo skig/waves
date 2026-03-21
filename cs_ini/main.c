@@ -24,6 +24,7 @@ static K_SEM_DEFINE(sem_connected, 0, 1);
 
 /* Separate thread to handle user input:
 - 's' to start firmware
+- 'r' to reboot
 */
 static void console_thread_func(void *p1, void *p2, void *p3)
 {
@@ -35,12 +36,14 @@ static void console_thread_func(void *p1, void *p2, void *p3)
 		if (c == 's') {
 			LOG_INF("Starting");
 			k_sem_give(&sem_start);
-			return;
+		}
+		if (c == 'r') {
+			sys_reboot(SYS_REBOOT_COLD);
 		}
 	}
 }
 
-K_THREAD_DEFINE(console_thread, 1024, console_thread_func, NULL, NULL, NULL, 7, 0, 0);
+K_THREAD_DEFINE(console_thread, 1024, console_thread_func, NULL, NULL, NULL, K_LOWEST_APPLICATION_THREAD_PRIO, 0, 0);
 
 static struct bt_conn *connection;
 

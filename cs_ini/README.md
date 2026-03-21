@@ -7,3 +7,7 @@ Based on Nordic Semiconductor Connect SDK 3.2.2.
 UART settings:
 - 1000000 baudrate
 - 8N1
+
+The firmware handles user input from the UART:
+- press 'r' to reboot
+- press 's' to connect to a reflector and start CS procedure
