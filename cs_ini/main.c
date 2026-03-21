@@ -131,10 +131,36 @@ static void remote_capabilities_cb(struct bt_conn *conn,
 				   struct bt_conn_le_cs_capabilities *params)
 {
 	ARG_UNUSED(conn);
-	ARG_UNUSED(params);
 
 	if (status == BT_HCI_ERR_SUCCESS) {
 		LOG_INF("CS capability exchange completed.");
+		LOG_INF(" - num_config_supported: %u", params->num_config_supported);
+		LOG_INF(" - max_consecutive_procedures_supported: %u", params->max_consecutive_procedures_supported);
+		LOG_INF(" - num_antennas_supported: %u", params->num_antennas_supported);
+		LOG_INF(" - max_antenna_paths_supported: %u", params->max_antenna_paths_supported);
+		LOG_INF(" - initiator_supported: %u", params->initiator_supported);
+		LOG_INF(" - reflector_supported: %u", params->reflector_supported);
+		LOG_INF(" - mode_3_supported: %u", params->mode_3_supported);
+		LOG_INF(" - rtt_aa_only_precision: %u", params->rtt_aa_only_precision);
+		LOG_INF(" - rtt_sounding_precision: %u", params->rtt_sounding_precision);
+		LOG_INF(" - rtt_random_payload_precision: %u", params->rtt_random_payload_precision);
+		LOG_INF(" - rtt_aa_only_n: %u", params->rtt_aa_only_n);
+		LOG_INF(" - rtt_sounding_n: %u", params->rtt_sounding_n);
+		LOG_INF(" - rtt_random_payload_n: %u", params->rtt_random_payload_n);
+		LOG_INF(" - phase_based_nadm_sounding_supported: %u", params->phase_based_nadm_sounding_supported);
+		LOG_INF(" - phase_based_nadm_random_supported: %u", params->phase_based_nadm_random_supported);
+		LOG_INF(" - cs_sync_2m_phy_supported: %u", params->cs_sync_2m_phy_supported);
+		LOG_INF(" - cs_sync_2m_2bt_phy_supported: %u", params->cs_sync_2m_2bt_phy_supported);
+		LOG_INF(" - cs_without_fae_supported: %u", params->cs_without_fae_supported);
+		LOG_INF(" - chsel_alg_3c_supported: %u", params->chsel_alg_3c_supported);
+		LOG_INF(" - pbr_from_rtt_sounding_seq_supported: %u", params->pbr_from_rtt_sounding_seq_supported);
+		LOG_INF(" - t_ip1_times_supported: 0x%04x", params->t_ip1_times_supported);
+		LOG_INF(" - t_ip2_times_supported: 0x%04x", params->t_ip2_times_supported);
+		LOG_INF(" - t_fcs_times_supported: 0x%04x", params->t_fcs_times_supported);
+		LOG_INF(" - t_pm_times_supported: 0x%04x", params->t_pm_times_supported);
+		LOG_INF(" - t_sw_time: %u", params->t_sw_time);
+		LOG_INF(" - tx_snr_capability: %u", params->tx_snr_capability);
+
 		k_sem_give(&sem_remote_capabilities_obtained);
 	} else {
 		LOG_WRN("CS capability exchange failed. (HCI status 0x%02x)", status);
