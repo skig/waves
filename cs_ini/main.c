@@ -5,6 +5,7 @@
 #include <zephyr/bluetooth/cs.h>
 #include <zephyr/bluetooth/conn.h>
 #include <bluetooth/scan.h>
+#include <zephyr/console/console.h>
 
 #include <dk_buttons_and_leds.h>
 
@@ -14,11 +15,32 @@ LOG_MODULE_REGISTER(app_main, LOG_LEVEL_INF);
 #define CON_STATUS_LED DK_LED1
 #define CS_CONFIG_ID   0
 
+static K_SEM_DEFINE(sem_start, 0, 1);
+static K_SEM_DEFINE(sem_security, 0, 1);
 static K_SEM_DEFINE(sem_remote_capabilities_obtained, 0, 1);
 static K_SEM_DEFINE(sem_config_created, 0, 1);
 static K_SEM_DEFINE(sem_cs_security_enabled, 0, 1);
 static K_SEM_DEFINE(sem_connected, 0, 1);
-static K_SEM_DEFINE(sem_security, 0, 1);
+
+/* Separate thread to handle user input:
+- 's' to start firmware
+*/
+static void console_thread_func(void *p1, void *p2, void *p3)
+{
+	console_init();
+
+	while (true) {
+		uint8_t c = console_getchar();
+
+		if (c == 's') {
+			LOG_INF("Starting");
+			k_sem_give(&sem_start);
+			return;
+		}
+	}
+}
+
+K_THREAD_DEFINE(console_thread, 1024, console_thread_func, NULL, NULL, NULL, 7, 0, 0);
 
 static struct bt_conn *connection;
 
@@ -262,6 +284,9 @@ int main(void)
 		return 0;
 	}
 
+	LOG_INF("Press s to start");
+	k_sem_take(&sem_start, K_FOREVER);
+
 	err = scan_init();
 	if (err) {
 		LOG_ERR("Scan init failed (err %d)", err);
@@ -375,7 +400,6 @@ int main(void)
 
 	LOG_INF("CS procedures started. Waiting for results...");
 
-	/* Keep running and logging results */
 	while (true) {
 		k_sleep(K_FOREVER);
 	}
