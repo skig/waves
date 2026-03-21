@@ -2,6 +2,7 @@
 
 import argparse
 import os
+import time
 from datetime import datetime
 from queue import Queue
 from threading import Thread, Event
@@ -85,6 +86,20 @@ def main():
         print("Mode: Reading from COM-ports")
         initiator_source = UartDataSource(args.initiator, baudrate=1000000, log_file=initiator_log_file)
         reflector_source = UartDataSource(args.reflector, baudrate=1000000, log_file=reflector_log_file)
+
+        initiator_source.open()
+        reflector_source.open()
+
+        print("Sending reboot command to initiator...")
+        initiator_source.send(b'r')
+        time.sleep(1)
+
+        initiator_source.flush_input()
+        reflector_source.flush_input()
+        print("Buffers flushed.")
+
+        print("Sending start command to initiator...")
+        initiator_source.send(b's')
 
     else:
         print("Mode: Reading from log files")

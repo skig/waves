@@ -20,9 +20,9 @@ class UartDataSource(DataSource):
         if self.log_file:
             self.log_handle = open(self.log_file, 'w', encoding='utf-8')
 
-    def read(self) -> Iterator[Optional[SubeventResults]]:
-        """Yield subevents from UART as they arrive."""
-        try:
+    def open(self):
+        """Open the serial connection."""
+        if self.serial_conn is None or not self.serial_conn.is_open:
             self.serial_conn = serial.Serial(
                 port=self.port,
                 baudrate=self.baudrate,
@@ -31,6 +31,22 @@ class UartDataSource(DataSource):
                 stopbits=serial.STOPBITS_ONE,
                 timeout=1.0
             )
+
+    def send(self, data: bytes):
+        """Send data over the serial connection."""
+        if self.serial_conn and self.serial_conn.is_open:
+            self.serial_conn.write(data)
+
+    def flush_input(self):
+        """Discard all data in the input buffer."""
+        if self.serial_conn and self.serial_conn.is_open:
+            self.serial_conn.reset_input_buffer()
+        self.buffer = ""
+
+    def read(self) -> Iterator[Optional[SubeventResults]]:
+        """Yield subevents from UART as they arrive."""
+        try:
+            self.open()
 
             while True:
                 if self.serial_conn.in_waiting > 0:
