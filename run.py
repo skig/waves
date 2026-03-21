@@ -84,8 +84,8 @@ def main():
 
     if args.uart:
         print("Mode: Reading from COM-ports")
-        initiator_source = UartDataSource(args.initiator, baudrate=1000000, log_file=initiator_log_file)
-        reflector_source = UartDataSource(args.reflector, baudrate=1000000, log_file=reflector_log_file)
+        initiator_source = UartDataSource(args.initiator, baudrate=1000000)
+        reflector_source = UartDataSource(args.reflector, baudrate=1000000)
 
         initiator_source.open()
         reflector_source.open()
@@ -97,6 +97,9 @@ def main():
         initiator_source.flush_input()
         reflector_source.flush_input()
         print("Buffers flushed.")
+
+        initiator_source.enable_logging(initiator_log_file)
+        reflector_source.enable_logging(reflector_log_file)
 
         print("Sending start command to initiator...")
         initiator_source.send(b's')

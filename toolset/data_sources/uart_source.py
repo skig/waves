@@ -9,16 +9,17 @@ class UartDataSource(DataSource):
     START_MARKER = "I: CS Subevent result received:"
     END_MARKER = "I: CS Subevent end"
 
-    def __init__(self, port: str, baudrate: int = 1000000, log_file: Optional[str] = None):
+    def __init__(self, port: str, baudrate: int = 1000000):
         self.port = port
         self.baudrate = baudrate
         self.serial_conn = None
         self.buffer = ""
-        self.log_file = log_file
         self.log_handle = None
 
-        if self.log_file:
-            self.log_handle = open(self.log_file, 'w', encoding='utf-8')
+    def enable_logging(self, log_file: Optional[str]):
+        """Start logging raw UART data to a file."""
+        if log_file:
+            self.log_handle = open(log_file, 'w', encoding='utf-8')
 
     def open(self):
         """Open the serial connection."""
