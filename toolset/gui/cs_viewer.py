@@ -3,6 +3,7 @@ from tkinter import ttk
 import math
 import numpy as np
 from typing import List, Optional, Callable, Dict
+from toolset.cs_utils.cs_capabilities import CSCapabilities
 from toolset.cs_utils.cs_subevent import SubeventResults
 from toolset.cs_utils.cs_step import (
     CSMode,
@@ -187,6 +188,7 @@ class CSViewer:
         self._update_display()
 
     def _create_tabs(self):
+        self._register_tab('setup', 'CS setup', self._build_setup_tab, self._update_setup_tab)
         self._register_tab('stats', 'Subevent steps', self._build_stats_tab, self._update_stats_tab)
         self._register_tab('plots', 'RSSI and phase slope', self._build_plots_tab, self._update_plots_tab)
 
@@ -202,6 +204,91 @@ class CSViewer:
         build_tab_content(frame)
         self._tab_update_handlers[key] = update_tab_content
         self._tab_indices[key] = self.notebook.index('end') - 1
+
+    def _build_setup_tab(self, tab_frame: ttk.Frame):
+        _SETUP_FIELDS = [
+            ('connection', 'Connection'),
+            ('encryption', 'Connection encryption'),
+            ('cs_security', 'CS Security'),
+            ('cs_capabilities', 'CS Capabilities exchange'),
+            ('cs_config', 'CS Configuration'),
+            ('cs_procedure', 'CS Procedure'),
+        ]
+        self._setup_indicators: Dict[str, tk.Canvas] = {}
+
+        container = ttk.Frame(tab_frame)
+        container.grid(row=0, column=0, sticky=tk.NW, padx=20, pady=20)
+
+        for row, (key, label) in enumerate(_SETUP_FIELDS):
+            indicator = tk.Canvas(container, width=16, height=16,
+                                  bg=_Theme.Background, highlightthickness=0)
+            indicator.create_oval(2, 2, 14, 14, fill='#b71c1c', outline='', tags='dot')
+            indicator.grid(row=row, column=0, padx=(0, 10), pady=4)
+            self._setup_indicators[key] = indicator
+
+            ttk.Label(container, text=label, font=('TkDefaultFont', 11)).grid(
+                row=row, column=1, sticky=tk.W, pady=4)
+
+        num_status_rows = len(_SETUP_FIELDS)
+
+        ttk.Label(container, text='CS capabilities:', font=('TkDefaultFont', 11)).grid(
+            row=num_status_rows, column=0, columnspan=2, sticky=tk.W, pady=(16, 4))
+
+        self._capabilities_text = tk.Text(
+            container, height=26, width=60, wrap='none',
+            bg=_Theme.AltBackground, fg=_Theme.Foreground,
+            insertbackground=_Theme.Foreground,
+            font=('TkFixedFont', 10),
+        )
+        self._capabilities_text.tag_configure('active', foreground=_Theme.Foreground)
+        self._capabilities_text.tag_configure('inactive', foreground=_Theme.SubtleForeground)
+        self._capabilities_text.tag_configure('label', foreground=_Theme.MidForeground)
+        self._capabilities_text.grid(
+            row=num_status_rows + 1, column=0, columnspan=2, sticky=(tk.W, tk.E), pady=(0, 4))
+        self._capabilities_text.insert('1.0', 'No data')
+        self._capabilities_text.config(state=tk.DISABLED)
+
+    def _update_setup_tab(self):
+        pass
+
+    def update_connection_status(self, key: str):
+        """Update a CS setup indicator to green. Thread-safe."""
+        def _set():
+            indicator = self._setup_indicators.get(key)
+            if indicator:
+                indicator.delete('dot')
+                indicator.create_oval(2, 2, 14, 14, fill='#2e7d32', outline='', tags='dot')
+        self.root.after(0, _set)
+
+    def update_capabilities_text(self, text: str):
+        """Parse capabilities text and render with active/greyed segments. Thread-safe."""
+        try:
+            caps = CSCapabilities.from_text(text)
+        except Exception:
+            self.root.after(0, lambda: self._set_capabilities_plain(text))
+            return
+        self.root.after(0, lambda: self._render_capabilities(caps))
+
+    def _set_capabilities_plain(self, text: str):
+        self._capabilities_text.config(state=tk.NORMAL)
+        self._capabilities_text.delete('1.0', tk.END)
+        self._capabilities_text.insert('1.0', text)
+        self._capabilities_text.config(state=tk.DISABLED)
+
+    def _render_capabilities(self, caps: CSCapabilities):
+        w = self._capabilities_text
+        w.config(state=tk.NORMAL)
+        w.delete('1.0', tk.END)
+        for i, (label, segments) in enumerate(caps.display_lines()):
+            if i > 0:
+                w.insert(tk.END, '\n')
+            w.insert(tk.END, f'{label}: ', 'label')
+            for j, (seg_text, active) in enumerate(segments):
+                if j > 0:
+                    w.insert(tk.END, '  ', 'inactive')
+                tag = 'active' if active else 'inactive'
+                w.insert(tk.END, seg_text, tag)
+        w.config(state=tk.DISABLED)
 
     def _build_stats_tab(self, tab_frame: ttk.Frame):
         # --- Summary statistics (top) ---

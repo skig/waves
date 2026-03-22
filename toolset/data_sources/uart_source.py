@@ -1,8 +1,8 @@
 from typing import Iterator, Optional
 import serial
-from toolset.data_sources.base import DataSource
+from toolset.data_sources.base import DataSource, _STATUS_MARKERS
+from toolset.data_sources.events import CSEvent, StatusEvent, CapabilitiesEvent, SubeventResultEvent
 from toolset.cs_utils.cs_subevent_parser import parse_cs_subevent_result
-from toolset.cs_utils.cs_subevent import SubeventResults
 
 
 class UartDataSource(DataSource):
@@ -15,6 +15,9 @@ class UartDataSource(DataSource):
         self.serial_conn = None
         self.buffer = ""
         self.log_handle = None
+        self._line_buffer = ""
+        self._collecting_capabilities = False
+        self._capabilities_lines: list[str] = []
 
     def enable_logging(self, log_file: Optional[str]):
         """Start logging raw UART data to a file."""
@@ -44,8 +47,28 @@ class UartDataSource(DataSource):
             self.serial_conn.reset_input_buffer()
         self.buffer = ""
 
-    def read(self) -> Iterator[Optional[SubeventResults]]:
-        """Yield subevents from UART as they arrive."""
+    def _process_line(self, line: str) -> Iterator[CSEvent]:
+        """Check a line for status markers and capabilities data."""
+        for key, marker in _STATUS_MARKERS.items():
+            markers = marker if isinstance(marker, tuple) else (marker,)
+            if any(m in line for m in markers):
+                yield StatusEvent(key)
+
+        if self._collecting_capabilities:
+            if 'I:  - ' in line:
+                self._capabilities_lines.append(line.split('I:  - ', 1)[1])
+            else:
+                if self._capabilities_lines:
+                    yield CapabilitiesEvent('\n'.join(self._capabilities_lines))
+                self._collecting_capabilities = False
+                self._capabilities_lines = []
+
+        if _STATUS_MARKERS['cs_capabilities'] in line:
+            self._collecting_capabilities = True
+            self._capabilities_lines = []
+
+    def read(self) -> Iterator[CSEvent]:
+        """Yield events from UART as they arrive."""
         try:
             self.open()
 
@@ -60,6 +83,12 @@ class UartDataSource(DataSource):
                         if self.log_handle:
                             self.log_handle.write(decoded_chunk)
                             self.log_handle.flush()
+
+                        # Check for status markers line-by-line
+                        self._line_buffer += decoded_chunk
+                        while '\n' in self._line_buffer:
+                            line, self._line_buffer = self._line_buffer.split('\n', 1)
+                            yield from self._process_line(line.rstrip('\r'))
                     except UnicodeDecodeError:
                         continue
 
@@ -81,7 +110,7 @@ class UartDataSource(DataSource):
 
                             parsed = parse_cs_subevent_result(subevent_text)
                             if parsed:
-                                yield parsed
+                                yield SubeventResultEvent(parsed)
                         else:
                             # Don't have complete subevent yet, wait for more data
                             break

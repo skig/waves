@@ -1,5 +1,6 @@
 """CS utilities for parsing Channel Sounding data."""
 
+from .cs_capabilities import *
 from .cs_step import *
 from .cs_step_parser import *
 from .cs_subevent import *

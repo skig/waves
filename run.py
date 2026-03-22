@@ -109,9 +109,15 @@ def main():
         initiator_source = FileDataSource(args.initiator)
         reflector_source = FileDataSource(args.reflector)
 
+    viewer = launch_viewer(dark_mode=args.dark_mode)
+
     initiator_producer = Thread(
         target=producer_worker,
         args=(initiator_source, initiator_queue, stop_event),
+        kwargs={
+            'status_callback': viewer.update_connection_status,
+            'capabilities_callback': viewer.update_capabilities_text,
+        },
         name="InitiatorProducer"
     )
 
@@ -120,8 +126,6 @@ def main():
         args=(reflector_source, reflector_queue, stop_event),
         name="ReflectorProducer"
     )
-
-    viewer = launch_viewer(dark_mode=args.dark_mode)
 
     consumer = Thread(
         target=dual_stream_consumer,

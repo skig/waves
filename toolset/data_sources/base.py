@@ -1,16 +1,25 @@
 from abc import ABC, abstractmethod
-from typing import Optional, Iterator
-from toolset.cs_utils.cs_subevent import SubeventResults
+from typing import Iterator
+from toolset.data_sources.events import CSEvent
+
+_STATUS_MARKERS = {
+    'connection': 'Connected to',
+    'encryption': 'Security changed',
+    'cs_security': 'CS security enabled',
+    'cs_capabilities': 'CS capability exchange completed',
+    'cs_config': 'CS config creation complete',
+    'cs_procedure': ('CS procedures started', 'CS procedures configured'),
+}
 
 
 class DataSource(ABC):
     """Abstract base class for all data sources."""
 
     @abstractmethod
-    def read(self) -> Iterator[Optional[SubeventResults]]:
+    def read(self) -> Iterator[CSEvent]:
         """
-        Yields SubeventResults as they become available.
-        Returns None when done/disconnected.
+        Yields CSEvent objects as they become available.
+        Events can be StatusEvent, CapabilitiesEvent, or SubeventResultEvent.
         """
         pass
 

@@ -134,32 +134,29 @@ static void remote_capabilities_cb(struct bt_conn *conn,
 
 	if (status == BT_HCI_ERR_SUCCESS) {
 		LOG_INF("CS capability exchange completed.");
-		LOG_INF(" - num_config_supported: %u", params->num_config_supported);
-		LOG_INF(" - max_consecutive_procedures_supported: %u", params->max_consecutive_procedures_supported);
-		LOG_INF(" - num_antennas_supported: %u", params->num_antennas_supported);
-		LOG_INF(" - max_antenna_paths_supported: %u", params->max_antenna_paths_supported);
-		LOG_INF(" - initiator_supported: %u", params->initiator_supported);
-		LOG_INF(" - reflector_supported: %u", params->reflector_supported);
-		LOG_INF(" - mode_3_supported: %u", params->mode_3_supported);
-		LOG_INF(" - rtt_aa_only_precision: %u", params->rtt_aa_only_precision);
-		LOG_INF(" - rtt_sounding_precision: %u", params->rtt_sounding_precision);
-		LOG_INF(" - rtt_random_payload_precision: %u", params->rtt_random_payload_precision);
-		LOG_INF(" - rtt_aa_only_n: %u", params->rtt_aa_only_n);
-		LOG_INF(" - rtt_sounding_n: %u", params->rtt_sounding_n);
-		LOG_INF(" - rtt_random_payload_n: %u", params->rtt_random_payload_n);
-		LOG_INF(" - phase_based_nadm_sounding_supported: %u", params->phase_based_nadm_sounding_supported);
-		LOG_INF(" - phase_based_nadm_random_supported: %u", params->phase_based_nadm_random_supported);
-		LOG_INF(" - cs_sync_2m_phy_supported: %u", params->cs_sync_2m_phy_supported);
-		LOG_INF(" - cs_sync_2m_2bt_phy_supported: %u", params->cs_sync_2m_2bt_phy_supported);
-		LOG_INF(" - cs_without_fae_supported: %u", params->cs_without_fae_supported);
-		LOG_INF(" - chsel_alg_3c_supported: %u", params->chsel_alg_3c_supported);
-		LOG_INF(" - pbr_from_rtt_sounding_seq_supported: %u", params->pbr_from_rtt_sounding_seq_supported);
-		LOG_INF(" - t_ip1_times_supported: 0x%04x", params->t_ip1_times_supported);
-		LOG_INF(" - t_ip2_times_supported: 0x%04x", params->t_ip2_times_supported);
-		LOG_INF(" - t_fcs_times_supported: 0x%04x", params->t_fcs_times_supported);
-		LOG_INF(" - t_pm_times_supported: 0x%04x", params->t_pm_times_supported);
-		LOG_INF(" - t_sw_time: %u", params->t_sw_time);
-		LOG_INF(" - tx_snr_capability: %u", params->tx_snr_capability);
+		LOG_INF(" - Num_Config_Supported: %u", params->num_config_supported);
+		LOG_INF(" - Max_Consecutive_Procedures_Supported: %u", params->max_consecutive_procedures_supported);
+		LOG_INF(" - Num_Antennas_Supported: %u", params->num_antennas_supported);
+		LOG_INF(" - Max_Antenna_Paths_Supported: %u", params->max_antenna_paths_supported);
+		LOG_INF(" - Roles_Supported: 0x%02x", (params->initiator_supported ? (1 << 0) : 0) | (params->reflector_supported ? (1 << 1) : 0));
+		LOG_INF(" - Modes_Supported: 0x%02x", params->mode_3_supported ? (1 << 0) : 0);
+		LOG_INF(" - RTT_Capability: 0x%02x",
+			((params->rtt_aa_only_precision == BT_CONN_LE_CS_RTT_AA_ONLY_10NS) ? (1 << 0) : 0) |
+			((params->rtt_sounding_precision == BT_CONN_LE_CS_RTT_SOUNDING_10NS) ? (1 << 1) : 0) |
+			((params->rtt_random_payload_precision == BT_CONN_LE_CS_RTT_RANDOM_PAYLOAD_10NS) ? (1 << 2) : 0));
+		LOG_INF(" - RTT_AA_Only_N: %u", params->rtt_aa_only_n);
+		LOG_INF(" - RTT_Sounding_N: %u", params->rtt_sounding_n);
+		LOG_INF(" - RTT_Random_Payload_N: %u", params->rtt_random_payload_n);
+		LOG_INF(" - NADM_Sounding_Capability: 0x%04x", params->phase_based_nadm_sounding_supported ? (1 << 0) : 0);
+		LOG_INF(" - NADM_Random_Capability: 0x%04x", params->phase_based_nadm_random_supported ? (1 << 0) : 0);
+		LOG_INF(" - CS_SYNC_PHYs_Supported: 0x%02x", (params->cs_sync_2m_phy_supported ? (1 << 1) : 0) | (params->cs_sync_2m_2bt_phy_supported ? (1 << 2) : 0));
+		LOG_INF(" - Subfeatures_Supported: 0x%04x", (params->cs_without_fae_supported ? (1 << 1) : 0) | (params->chsel_alg_3c_supported ? (1 << 2) : 0) | (params->pbr_from_rtt_sounding_seq_supported ? (1 << 3) : 0));
+		LOG_INF(" - T_IP1_Times_Supported: 0x%04x", params->t_ip1_times_supported);
+		LOG_INF(" - T_IP2_Times_Supported: 0x%04x", params->t_ip2_times_supported);
+		LOG_INF(" - T_FCS_Times_Supported: 0x%04x", params->t_fcs_times_supported);
+		LOG_INF(" - T_PM_Times_Supported: 0x%04x", params->t_pm_times_supported);
+		LOG_INF(" - T_SW_Time_Supported: %u", params->t_sw_time);
+		LOG_INF(" - TX_SNR_Capability: 0x%02x", params->tx_snr_capability);
 
 		k_sem_give(&sem_remote_capabilities_obtained);
 	} else {
