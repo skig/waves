@@ -30,6 +30,31 @@ _STEP_VIS_STEP_GAP = 6   # horizontal gap between consecutive step groups
 _STEP_VIS_PAD_X = 8      # left/right canvas padding
 _STEP_VIS_PAD_Y = 5      # top/bottom canvas padding
 
+_CAPABILITY_DESC_DEFAULT = 'Before performing CS procedure, devices exchange their CS capabilities, the capabilities reported by Reflector device are shown above. Click on a capability to see details.'
+
+_CAPABILITY_DESCRIPTIONS: Dict[str, str] = {
+    'Num_Config_Supported': 'Before performing CS procedure, initiator and reflector negotiate what CS configuration they will use: step modes, timings etc. A device can store from 1 to 4 different CS configurations, the number of supported CS configurations is defined by Num_Config_Supported.',
+    'Max_Consecutive_Procedures_Supported': 'Maximum number of consecutive CS procedures the device supports. Can be from 1 to 65535, or indefinite, in which case the CS procedures run until CS procedure termination is performed (shown as ∞),.',
+    'Num_Antennas_Supported': 'Number of antennas available for CS a device has.',
+    'Max_Antenna_Paths_Supported': 'Maximum number of antenna paths supported during CS. Note, a device can have only a single antenna but still support multiple paths, in that case the peer needs to perform antenna switching.',
+    'Roles_Supported': 'Bitmask of CS roles supported (initiator, reflector).',
+    'Modes_Supported': 'Bitmask of CS modes supported (mode-0, mode-1, mode-2, mode-3).',
+    'RTT_Capability': 'Round-trip time measurement capability flags.',
+    'RTT_AA_Only_N': 'RTT accuracy for AA-only packets (N value).',
+    'RTT_Sounding_N': 'RTT accuracy for sounding packets (N value).',
+    'RTT_Random_Payload_N': 'RTT accuracy for random payload packets (N value).',
+    'NADM_Sounding_Capability': 'Normalized Attack Detector Metric capability for sounding sequences.',
+    'NADM_Random_Capability': 'Normalized Attack Detector Metric capability for random sequences.',
+    'CS_SYNC_PHYs_Supported': 'Bitmask of PHYs supported for CS synchronization.',
+    'Subfeatures_Supported': 'Bitmask of optional CS sub-features supported.',
+    'T_IP1_Times_Supported': 'Supported interlude period T_IP1 durations.',
+    'T_IP2_Times_Supported': 'Supported interlude period T_IP2 durations.',
+    'T_FCS_Times_Supported': 'Supported frequency change slot T_FCS durations.',
+    'T_PM_Times_Supported': 'Supported phase measurement T_PM durations.',
+    'T_SW_Time_Supported': 'Antenna switch time T_SW in microseconds.',
+    'TX_SNR_Capability': 'Supported transmit signal-to-noise ratio values.',
+}
+
 
 class CSViewer:
     """GUI for viewing Channel Sounding data"""
@@ -76,6 +101,10 @@ class CSViewer:
         self._rssi_bottom_dbm = -100.0
         self._rssi_top_dbm = 0.0
         self._bar_width = 0.35
+
+        # Capabilities description state
+        self._capabilities_labels: List[str] = []
+        self._selected_capability_line: Optional[int] = None
 
         # Subevent steps-tab hex view state
         self._selected_step_idx: Optional[int] = None
@@ -231,22 +260,45 @@ class CSViewer:
 
         num_status_rows = len(_SETUP_FIELDS)
 
-        ttk.Label(container, text='CS capabilities:', font=('TkDefaultFont', 11)).grid(
+        ttk.Label(container, text='CS capabilities (reflector):', font=('TkDefaultFont', 11)).grid(
             row=num_status_rows, column=0, columnspan=2, sticky=tk.W, pady=(16, 4))
 
         self._capabilities_text = tk.Text(
-            container, height=26, width=60, wrap='none',
+            container, height=20, width=60, wrap='none',
             bg=_Theme.AltBackground, fg=_Theme.Foreground,
             insertbackground=_Theme.Foreground,
             font=('TkFixedFont', 10),
+            cursor='arrow',
         )
         self._capabilities_text.tag_configure('active', foreground=_Theme.Foreground)
         self._capabilities_text.tag_configure('inactive', foreground=_Theme.SubtleForeground)
         self._capabilities_text.tag_configure('label', foreground=_Theme.MidForeground)
+        self._capabilities_text.tag_configure('line_selected', background=_Theme.Selection)
+        self._capabilities_text.tag_raise('line_selected')
+        self._capabilities_text.bind('<Button-1>', self._on_capabilities_click)
+        self._capabilities_text.bind('<B1-Motion>', lambda e: 'break')
+        self._capabilities_text.bind('<Double-Button-1>', lambda e: 'break')
+        self._capabilities_text.bind('<Triple-Button-1>', lambda e: 'break')
+        self._capabilities_text.bind('<Up>', lambda e: (self._on_capabilities_key_navigate(-1), 'break')[1])
+        self._capabilities_text.bind('<Down>', lambda e: (self._on_capabilities_key_navigate(1), 'break')[1])
         self._capabilities_text.grid(
             row=num_status_rows + 1, column=0, columnspan=2, sticky=(tk.W, tk.E), pady=(0, 4))
         self._capabilities_text.insert('1.0', 'No data')
         self._capabilities_text.config(state=tk.DISABLED)
+
+        ttk.Label(container, text='Capability description:', font=('TkDefaultFont', 11)).grid(
+            row=num_status_rows + 2, column=0, columnspan=2, sticky=tk.W, pady=(8, 4))
+
+        self._capability_desc_text = tk.Text(
+            container, height=6, width=60, wrap='word',
+            bg=_Theme.AltBackground, fg=_Theme.Foreground,
+            insertbackground=_Theme.Foreground,
+            font=('TkFixedFont', 10),
+        )
+        self._capability_desc_text.grid(
+            row=num_status_rows + 3, column=0, columnspan=2, sticky=(tk.W, tk.E), pady=(0, 4))
+        self._capability_desc_text.insert('1.0', _CAPABILITY_DESC_DEFAULT)
+        self._capability_desc_text.config(state=tk.DISABLED)
 
     def _update_setup_tab(self):
         pass
@@ -279,6 +331,7 @@ class CSViewer:
         w = self._capabilities_text
         w.config(state=tk.NORMAL)
         w.delete('1.0', tk.END)
+        self._capabilities_labels = []
         for i, (label, segments) in enumerate(caps.display_lines()):
             if i > 0:
                 w.insert(tk.END, '\n')
@@ -288,7 +341,42 @@ class CSViewer:
                     w.insert(tk.END, '  ', 'inactive')
                 tag = 'active' if active else 'inactive'
                 w.insert(tk.END, seg_text, tag)
+            self._capabilities_labels.append(label)
         w.config(state=tk.DISABLED)
+        self._selected_capability_line = None
+        self._set_text_widget(self._capability_desc_text, _CAPABILITY_DESC_DEFAULT)
+
+    def _on_capabilities_click(self, event):
+        """Select whole line in capabilities text and show description."""
+        idx = self._capabilities_text.index(f'@{event.x},{event.y}')
+        line_num = int(idx.split('.')[0])
+        self._select_capability_line(line_num)
+        self._capabilities_text.focus_set()
+        return 'break'
+
+    def _on_capabilities_key_navigate(self, delta: int):
+        """Move capability selection up or down by delta lines."""
+        if not self._capabilities_labels:
+            return
+        current = self._selected_capability_line if self._selected_capability_line is not None else -1
+        new_idx = max(0, min(len(self._capabilities_labels) - 1, current + delta))
+        self._select_capability_line(new_idx + 1)
+
+    def _select_capability_line(self, line_num: int):
+        w = self._capabilities_text
+        w.config(state=tk.NORMAL)
+        w.tag_remove('line_selected', '1.0', tk.END)
+        w.tag_add('line_selected', f'{line_num}.0', f'{line_num}.end')
+        w.config(state=tk.DISABLED)
+
+        cap_idx = line_num - 1
+        self._selected_capability_line = cap_idx
+        if 0 <= cap_idx < len(self._capabilities_labels):
+            label = self._capabilities_labels[cap_idx]
+            desc = _CAPABILITY_DESCRIPTIONS.get(label, 'No description available.')
+        else:
+            desc = 'No description available.'
+        self._set_text_widget(self._capability_desc_text, desc)
 
     def _build_stats_tab(self, tab_frame: ttk.Frame):
         # --- Summary statistics (top) ---

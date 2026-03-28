@@ -4,6 +4,7 @@ from typing import List, Tuple
 
 # Bitmask-to-value lookup tables for timing fields
 
+NUM_CONFIG_SUPPORTED_VALUES = {0: 1, 1: 2, 2: 3, 3: 4}
 T_IP1_VALUES_US = {0: 10, 1: 20, 2: 30, 3: 40, 4: 50, 5: 60, 6: 80}
 T_IP2_VALUES_US = {0: 10, 1: 20, 2: 30, 3: 40, 4: 50, 5: 60, 6: 80}
 T_FCS_VALUES_US = {0: 15, 1: 20, 2: 30, 3: 40, 4: 50, 5: 60, 6: 80, 7: 100, 8: 120}
@@ -130,10 +131,10 @@ class CSCapabilities:
         inactive segments render greyed out.
         """
         return [
-            ('Num_Config_Supported', [(str(self.num_config_supported), True)]),
-            ('Max_Consecutive_Procedures_Supported', [(str(self.max_consecutive_procedures_supported), True)]),
-            ('Num_Antennas_Supported', [(str(self.num_antennas_supported), True)]),
-            ('Max_Antenna_Paths_Supported', [(str(self.max_antenna_paths_supported), True)]),
+            ('Num_Config_Supported', _value_bitmask_segments(self.num_config_supported, NUM_CONFIG_SUPPORTED_VALUES)),
+            ('Max_Consecutive_Procedures_Supported', [('∞' if self.max_consecutive_procedures_supported == 0 else str(self.max_consecutive_procedures_supported), True)]),
+            ('Num_Antennas_Supported', [(str(v), self.num_antennas_supported == v) for v in range(1, 5)]),
+            ('Max_Antenna_Paths_Supported', [(str(v), self.max_antenna_paths_supported == v) for v in range(1, 5)]),
             ('Roles_Supported', _bitmask_segments(self.roles_supported, ROLES_BITS)),
             ('Modes_Supported', _bitmask_segments(self.modes_supported, MODES_BITS)),
             ('RTT_Capability', _bitmask_segments(self.rtt_capability, RTT_CAPABILITY_BITS)),
