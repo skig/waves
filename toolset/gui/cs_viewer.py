@@ -34,7 +34,7 @@ _CAPABILITY_DESC_DEFAULT = 'Before performing CS procedure, devices exchange the
 
 _CAPABILITY_DESCRIPTIONS: Dict[str, str] = {
     'Num_Config_Supported': 'Before performing CS procedure, initiator and reflector negotiate what CS configuration they will use: step modes, timings etc. A device can store from 1 to 4 different CS configurations, the number of supported CS configurations is defined by Num_Config_Supported.',
-    'Max_Consecutive_Procedures_Supported': 'Maximum number of consecutive CS procedures the device supports. Can be from 1 to 65535, or indefinite, in which case the CS procedures run until CS procedure termination is performed (shown as ∞),.',
+    'Max_Consecutive_Procedures_Supported': 'Maximum number of consecutive CS procedures the device supports. Can be from 1 to 65535, or indefinite, in which case the CS procedures run until CS procedure termination is performed (shown as ∞).',
     'Num_Antennas_Supported': 'Number of antennas available for CS a device has.',
     'Max_Antenna_Paths_Supported': 'Maximum number of antenna paths supported during CS. Note, a device can have only a single antenna but still support multiple paths, in that case the peer needs to perform antenna switching.',
     'Roles_Supported': 'Bitmask of CS roles supported (initiator, reflector).',
@@ -281,6 +281,8 @@ class CSViewer:
         self._capabilities_text.bind('<Triple-Button-1>', lambda e: 'break')
         self._capabilities_text.bind('<Up>', lambda e: (self._on_capabilities_key_navigate(-1), 'break')[1])
         self._capabilities_text.bind('<Down>', lambda e: (self._on_capabilities_key_navigate(1), 'break')[1])
+        self._capabilities_text.bind('<Control-c>', self._on_capabilities_copy)
+        self._capabilities_text.bind('<Escape>', self._on_capabilities_deselect)
         self._capabilities_text.grid(
             row=num_status_rows + 1, column=0, columnspan=2, sticky=(tk.W, tk.E), pady=(0, 4))
         self._capabilities_text.insert('1.0', 'No data')
@@ -345,6 +347,39 @@ class CSViewer:
         w.config(state=tk.DISABLED)
         self._selected_capability_line = None
         self._set_text_widget(self._capability_desc_text, _CAPABILITY_DESC_DEFAULT)
+
+    def _on_capabilities_copy(self, event):
+        """Copy capabilities text with only active (highlighted) values to clipboard."""
+        w = self._capabilities_text
+
+        def _tag_texts_on_line(tag, line):
+            texts = []
+            ranges = w.tag_ranges(tag)
+            for i in range(0, len(ranges), 2):
+                if int(str(ranges[i]).split('.')[0]) == line:
+                    texts.append(w.get(ranges[i], ranges[i + 1]))
+            return texts
+
+        num_lines = int(w.index('end-1c').split('.')[0])
+        result_lines = []
+        for line_num in range(1, num_lines + 1):
+            label = ''.join(_tag_texts_on_line('label', line_num))
+            active = '  '.join(_tag_texts_on_line('active', line_num))
+            result_lines.append(label + (active if active.strip() else 'None'))
+
+        self.root.clipboard_clear()
+        self.root.clipboard_append('\n'.join(result_lines))
+        return 'break'
+
+    def _on_capabilities_deselect(self, event):
+        """Deselect capability line and restore default description."""
+        w = self._capabilities_text
+        w.config(state=tk.NORMAL)
+        w.tag_remove('line_selected', '1.0', tk.END)
+        w.config(state=tk.DISABLED)
+        self._selected_capability_line = None
+        self._set_text_widget(self._capability_desc_text, _CAPABILITY_DESC_DEFAULT)
+        return 'break'
 
     def _on_capabilities_click(self, event):
         """Select whole line in capabilities text and show description."""
