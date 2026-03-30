@@ -9,6 +9,7 @@ T_IP1_VALUES_US = {0: 10, 1: 20, 2: 30, 3: 40, 4: 50, 5: 60, 6: 80}
 T_IP2_VALUES_US = {0: 10, 1: 20, 2: 30, 3: 40, 4: 50, 5: 60, 6: 80}
 T_FCS_VALUES_US = {0: 15, 1: 20, 2: 30, 3: 40, 4: 50, 5: 60, 6: 80, 7: 100, 8: 120}
 T_PM_VALUES_US = {0: 10, 1: 20}
+T_SW_VALUES_US = (0, 1, 2, 4, 10)
 SNR_VALUES_DB = {0: 18, 1: 21, 2: 24, 3: 27, 4: 30}
 
 ROLES_BITS = {0: 'Initiator', 1: 'Reflector'}
@@ -149,7 +150,7 @@ class CSCapabilities:
             ('T_IP2_Times_Supported', _value_bitmask_segments(self.t_ip2_times_supported, T_IP2_VALUES_US, ' μs')),
             ('T_FCS_Times_Supported', _value_bitmask_segments(self.t_fcs_times_supported, T_FCS_VALUES_US, ' μs')),
             ('T_PM_Times_Supported', _value_bitmask_segments(self.t_pm_times_supported, T_PM_VALUES_US, ' μs')),
-            ('T_SW_Time_Supported', [(f'{self.t_sw_time_supported} μs', True)]),
+            ('T_SW_Time_Supported', [(str(v), self.t_sw_time_supported == v) for v in T_SW_VALUES_US] + [('μs', self.t_sw_time_supported in T_SW_VALUES_US)]),
             ('TX_SNR_Capability', _value_bitmask_segments(self.tx_snr_capability, SNR_VALUES_DB, ' dB')),
         ]
 

@@ -30,29 +30,29 @@ _STEP_VIS_STEP_GAP = 6   # horizontal gap between consecutive step groups
 _STEP_VIS_PAD_X = 8      # left/right canvas padding
 _STEP_VIS_PAD_Y = 5      # top/bottom canvas padding
 
-_CAPABILITY_DESC_DEFAULT = 'Before performing CS procedure, devices exchange their CS capabilities, the capabilities reported by Reflector device are shown above. Click on a capability to see details.'
+_CAPABILITY_DESC_DEFAULT = 'Before performing CS procedure, devices exchange their CS capabilities, the capabilities reported by Reflector device are shown above. Click on a capability to see details. Greyed-out values are not supported by the device, bright values are supported.'
 
 _CAPABILITY_DESCRIPTIONS: Dict[str, str] = {
     'Num_Config_Supported': 'Before performing CS procedure, initiator and reflector negotiate what CS configuration they will use: step modes, timings etc. A device can store from 1 to 4 different CS configurations, the number of supported CS configurations is defined by Num_Config_Supported.',
     'Max_Consecutive_Procedures_Supported': 'Maximum number of consecutive CS procedures the device supports. Can be from 1 to 65535, or indefinite, in which case the CS procedures run until CS procedure termination is performed (shown as ∞).',
-    'Num_Antennas_Supported': 'Number of antennas available for CS a device has.',
+    'Num_Antennas_Supported': 'Number of antennas a device has available for CS.',
     'Max_Antenna_Paths_Supported': 'Maximum number of antenna paths supported during CS. Note, a device can have only a single antenna but still support multiple paths, in that case the peer needs to perform antenna switching.',
-    'Roles_Supported': 'Bitmask of CS roles supported (initiator, reflector).',
-    'Modes_Supported': 'Bitmask of CS modes supported (mode-0, mode-1, mode-2, mode-3).',
-    'RTT_Capability': 'Round-trip time measurement capability flags.',
-    'RTT_AA_Only_N': 'RTT accuracy for AA-only packets (N value).',
-    'RTT_Sounding_N': 'RTT accuracy for sounding packets (N value).',
-    'RTT_Random_Payload_N': 'RTT accuracy for random payload packets (N value).',
+    'Roles_Supported': 'A device can support both roles (initiator and reflector), or just a single one.',
+    'Modes_Supported': 'Optional CS step modes supported. Mode-0, mode-1 and mode-2 are mandatory so they are not included in capabilities exchange procedure, only mode-3 is optional and may or may not be supported by the device.',
+    'RTT_Capability': 'Optional 10-ns RTT accuracy support. If 10-ns accuracy is not supported, the device supports mandatory 150 ns accuracy on the supported RTT packet formats (see 3 capabilities below).',
+    'RTT_AA_Only_N': 'Number of AA-only RTT packets required to achieve the specified accuracy (10 ns or 150 ns). If 0, then AA-only RTT packets are not supported.',
+    'RTT_Sounding_N': 'Number of Sounding RTT packets required to achieve the specified accuracy (10 ns or 150 ns). If 0, then Sounding RTT packets are not supported.',
+    'RTT_Random_Payload_N': 'Number of random-payload RTT packets required to achieve the specified accuracy (10 ns or 150 ns). If 0, then random-payload RTT packets are not supported.',
     'NADM_Sounding_Capability': 'Normalized Attack Detector Metric capability for sounding sequences.',
     'NADM_Random_Capability': 'Normalized Attack Detector Metric capability for random sequences.',
-    'CS_SYNC_PHYs_Supported': 'Bitmask of PHYs supported for CS synchronization.',
-    'Subfeatures_Supported': 'Bitmask of optional CS sub-features supported.',
-    'T_IP1_Times_Supported': 'Supported interlude period T_IP1 durations.',
-    'T_IP2_Times_Supported': 'Supported interlude period T_IP2 durations.',
-    'T_FCS_Times_Supported': 'Supported frequency change slot T_FCS durations.',
-    'T_PM_Times_Supported': 'Supported phase measurement T_PM durations.',
-    'T_SW_Time_Supported': 'Antenna switch time T_SW in microseconds.',
-    'TX_SNR_Capability': 'Supported transmit signal-to-noise ratio values.',
+    'CS_SYNC_PHYs_Supported': 'Optional PHYs supported for CS procedure. LE 1M PHY is mandatory so it is not included in capabilities exchange procedure. LE 2M and LE 2M 2BT PHYs are optional.',
+    'Subfeatures_Supported': 'Optional CS sub-features supported by the device.',
+    'T_IP1_Times_Supported': 'Optional interlude period T_IP1 durations. 145 us is mandatory. T_IP1 is time between end of initiator packet and start of reflector packet for mode-0 and mode-1 steps.',
+    'T_IP2_Times_Supported': 'Optional interlude period T_IP2 durations. 145 us is mandatory. T_IP2 is time between end of initiator packet and start of reflector packet for mode-2 and mode-3 steps.',
+    'T_FCS_Times_Supported': 'Optional frequency hop T_FCS durations. 150 us is mandatory. Frequency hopping happens between steps.',
+    'T_PM_Times_Supported': 'Optional phase measurement T_PM durations. 40 us is mandatory. T_PM is the time between when a device receives a CS tone and when it measures the phase and amplitude in a mode-2 or mode-3 step.',
+    'T_SW_Time_Supported': 'Antenna switch time T_SW in microseconds. When antenna switching is not supported, the value is 0.',
+    'TX_SNR_Capability': 'Signal-to-noise ratio levels used in RTT packets when SNR output control is supported.',
 }
 
 
