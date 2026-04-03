@@ -30,7 +30,7 @@ class PlotsTabMixin:
         self.fig = Figure(figsize=(8, 8), dpi=100)
         self.ax_phase = self.fig.add_subplot(211)
         self.ax_phase.set_xlabel('Channel Index')
-        self.ax_phase.set_ylabel('Sum of Phases')
+        self.ax_phase.set_ylabel('Sum of Phases unwrapped, rad')
         self.ax_phase.set_title('Phase Slope')
 
         self.ax_rssi = self.fig.add_subplot(212)
