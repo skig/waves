@@ -1,7 +1,8 @@
+import re
 from typing import Iterator
 from toolset.data_sources.base import DataSource, _STATUS_MARKERS
 from toolset.data_sources.events import CSEvent, StatusEvent, CapabilitiesEvent, SubeventResultEvent
-from toolset.cs_data_processor import CSDataProcessor
+from toolset.cs_utils.cs_subevent_parser import parse_cs_subevent_result
 
 
 class FileDataSource(DataSource):
@@ -9,7 +10,6 @@ class FileDataSource(DataSource):
 
     def __init__(self, filepath: str):
         self.filepath = filepath
-        self.processor = CSDataProcessor()
 
     def read(self) -> Iterator[CSEvent]:
         """Yield events from file."""
@@ -18,7 +18,7 @@ class FileDataSource(DataSource):
 
         yield from _parse_log_lines(raw_text)
 
-        for subevent in self.processor._process_text(raw_text):
+        for subevent in _parse_subevents(raw_text):
             if subevent is not None:
                 yield SubeventResultEvent(subevent)
 
@@ -52,3 +52,18 @@ def _parse_log_lines(text: str) -> Iterator[CSEvent]:
 
     if capabilities_lines:
         yield CapabilitiesEvent('\n'.join(capabilities_lines))
+
+
+def _parse_subevents(text: str):
+    """Extract CS Subevent blocks from log text and parse them."""
+    pattern = r'(?=I: CS Subevent result received:)'
+    blocks = re.split(pattern, text)
+
+    for block in blocks:
+        if not block.strip() or 'CS Subevent result received:' not in block:
+            continue
+
+        next_marker = block.find('I: CS Subevent result received:', 1)
+        subevent_text = block[:next_marker] if next_marker != -1 else block
+
+        yield parse_cs_subevent_result(subevent_text)
