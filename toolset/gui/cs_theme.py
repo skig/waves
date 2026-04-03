@@ -45,6 +45,19 @@ class _ThemeColors:
     PlotRefBarColor: str
 
 
+class _ActiveTheme:
+    """Mutable proxy – delegates attribute access to the currently active theme."""
+
+    def __init__(self, default: _ThemeColors):
+        object.__setattr__(self, '_current', default)
+
+    def __getattr__(self, name: str):
+        return getattr(object.__getattribute__(self, '_current'), name)
+
+    def set(self, theme: _ThemeColors):
+        object.__setattr__(self, '_current', theme)
+
+
 LIGHT_THEME = _ThemeColors(
     Background='#ffffff',
     AltBackground='#f0f0f0',
@@ -112,3 +125,5 @@ DARK_THEME = _ThemeColors(
     PlotIniBarColor='#42a5f5',
     PlotRefBarColor='#ef5350',
 )
+
+_Theme = _ActiveTheme(DARK_THEME)
