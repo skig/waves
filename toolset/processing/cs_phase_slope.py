@@ -14,7 +14,16 @@ def calculate_phase_slope_data(initiator: SubeventResults, reflector: SubeventRe
     for channel in common_channels:
         phase_sums[channel] = initiator_phases[channel] + reflector_phases[channel]
 
-    return _unwrap_phases_by_channel(phase_sums)
+    unwrapped_phases = _unwrap_phases_by_channel(phase_sums)
+
+    # Unwrapped sum of initiator and reflector phases corresponds to
+    # doubled channel phase shift.
+    # Divide each phase by two here to find the actual phase shift in the radio channel
+    channel_phase_response = unwrapped_phases
+    for channel in channel_phase_response:
+        channel_phase_response[channel]  = channel_phase_response[channel] / 2
+
+    return channel_phase_response
 
 
 # TODO: test and debug
