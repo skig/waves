@@ -8,6 +8,7 @@ from matplotlib.figure import Figure
 from matplotlib.collections import PolyCollection
 from matplotlib.patches import Patch
 from toolset.gui.cs_theme import _Theme
+from toolset.processing.cs_phase_slope import calculate_distance_from_phase_slope
 
 
 class PlotsTabMixin:
@@ -39,7 +40,7 @@ class PlotsTabMixin:
         self.ax_rssi.set_title('RSSI Values')
 
         self._apply_plot_theme()
-        self.fig.tight_layout()
+        self.fig.tight_layout(h_pad=4.5)
 
         self.canvas = FigureCanvasTkAgg(self.fig, master=tab_frame)
         tk_widget = self.canvas.get_tk_widget()
@@ -63,6 +64,13 @@ class PlotsTabMixin:
                                                    edgecolors=['none'], antialiaseds=False, alpha=0.8, animated=True)
         self.ax_rssi.add_collection(self._rssi_ref_collection)
         self._update_rssi_legend()
+        self._distance_text = self.ax_phase.text(
+            0.5, -0.22, "Distance: N/A",
+            transform=self.ax_phase.transAxes,
+            ha='center', va='top',
+            fontsize=16, color=_Theme.PlotForeground,
+            animated=True, clip_on=False,
+        )
         self._force_full_redraw = True
 
     def _update_rssi_legend(self):
@@ -90,6 +98,9 @@ class PlotsTabMixin:
     def _update_plots_tab(self):
         self._update_phase_plot(self._current_phase_slope_data)
         self._update_rssi_plot(self._current_rssi_ini_data, self._current_rssi_ref_data)
+        distance = calculate_distance_from_phase_slope(self._current_phase_slope_data) if self._current_phase_slope_data else None
+        if self._distance_text is not None:
+            self._distance_text.set_text(f"Distance: {distance:.2f} m" if distance is not None else "Distance: N/A")
         self._render_plots()
 
     def _update_phase_plot(self, phase_slope_data: Optional[Dict[int, float]]):
@@ -203,6 +214,8 @@ class PlotsTabMixin:
         def _draw_bar_artists():
             if self._phase_collection is not None:
                 self.ax_phase.draw_artist(self._phase_collection)
+            if self._distance_text is not None:
+                self.ax_phase.draw_artist(self._distance_text)
             if self._rssi_ini_collection is not None:
                 self.ax_rssi.draw_artist(self._rssi_ini_collection)
             if self._rssi_ref_collection is not None:
@@ -240,6 +253,8 @@ class PlotsTabMixin:
             self.canvas.restore_region(self._blit_background)
             if self._phase_collection is not None:
                 self.ax_phase.draw_artist(self._phase_collection)
+            if self._distance_text is not None:
+                self.ax_phase.draw_artist(self._distance_text)
             if self._rssi_ini_collection is not None:
                 self.ax_rssi.draw_artist(self._rssi_ini_collection)
             if self._rssi_ref_collection is not None:

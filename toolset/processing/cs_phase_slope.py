@@ -1,7 +1,9 @@
-from typing import Dict
+from typing import Dict, Optional
 from math import atan2, pi
+import numpy as np
 from toolset.cs_utils.cs_subevent import SubeventResults
 from toolset.cs_utils.cs_step import CSStepMode2, ToneQualityIndicatorExtensionSlot
+from toolset.constants import SPEED_OF_LIGHT
 
 
 def calculate_phase_slope_data(initiator: SubeventResults, reflector: SubeventResults) -> Dict[int, float]:
@@ -24,6 +26,16 @@ def calculate_phase_slope_data(initiator: SubeventResults, reflector: SubeventRe
         channel_phase_response[channel]  = channel_phase_response[channel] / 2
 
     return channel_phase_response
+
+
+def calculate_distance_from_phase_slope(phase_slope_data: Dict[int, float]) -> Optional[float]:
+    if len(phase_slope_data) < 2:
+        return None
+    # BLE CS channel n maps to (2402 + n) MHz
+    freqs = np.array([(2402 + ch) * 1e6 for ch in phase_slope_data])
+    phases = np.array(list(phase_slope_data.values()))
+    slope, _ = np.polyfit(freqs, phases, 1)  # rad/Hz
+    return -slope * SPEED_OF_LIGHT / (2 * pi)
 
 
 # TODO: test and debug

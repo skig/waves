@@ -46,6 +46,7 @@ class CSViewer(SetupTabMixin, StepsTabMixin, PlotsTabMixin):
         self._phase_collection: Optional[PolyCollection] = None
         self._rssi_ini_collection: Optional[PolyCollection] = None
         self._rssi_ref_collection: Optional[PolyCollection] = None
+        self._distance_text = None
         self._blit_background = None
         self._force_full_redraw = True
         self._bg_refresh_pending = False
