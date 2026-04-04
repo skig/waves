@@ -6,10 +6,11 @@ from toolset.gui.cs_theme import _Theme, LIGHT_THEME, DARK_THEME
 from toolset.gui.setup_tab import SetupTabMixin
 from toolset.gui.steps_tab import StepsTabMixin
 from toolset.gui.plots_tab import PlotsTabMixin
+from toolset.gui.sensing_tab import SensingTabMixin
 from matplotlib.collections import PolyCollection
 
 
-class CSViewer(SetupTabMixin, StepsTabMixin, PlotsTabMixin):
+class CSViewer(SetupTabMixin, StepsTabMixin, PlotsTabMixin, SensingTabMixin):
     """GUI for viewing Channel Sounding data"""
 
     def __init__(self, initiator_subevents: List = None, reflector_subevents: List = None, dark_mode: bool = True):
@@ -32,6 +33,7 @@ class CSViewer(SetupTabMixin, StepsTabMixin, PlotsTabMixin):
         self.gui_refresh_interval_ms = 100
         self._live_render_scheduled = False
         self._pending_live_counter: Optional[int] = None
+        self._current_counter: Optional[int] = None
         self._current_initiator: Optional[SubeventResults] = None
         self._current_reflector: Optional[SubeventResults] = None
         self._current_phase_slope_data: Optional[Dict[int, float]] = None
@@ -173,6 +175,7 @@ class CSViewer(SetupTabMixin, StepsTabMixin, PlotsTabMixin):
         self._register_tab('setup', 'CS setup', self._build_setup_tab, self._update_setup_tab)
         self._register_tab('stats', 'Subevent steps', self._build_stats_tab, self._update_stats_tab)
         self._register_tab('plots', 'RSSI and phase slope', self._build_plots_tab, self._update_plots_tab)
+        self._register_tab('sensing', 'Sensing', self._build_sensing_tab, self._update_sensing_tab)
 
     def _register_tab(
         self,
@@ -227,12 +230,14 @@ class CSViewer(SetupTabMixin, StepsTabMixin, PlotsTabMixin):
             counter_value = self.counter_var.get()
 
             if self.live_mode:
+                self._current_counter = counter_value
                 self._current_initiator = self.live_initiator
                 self._current_reflector = self.live_reflector
                 self._current_phase_slope_data = self.live_phase_slope
                 self._current_rssi_ini_data = self.live_rssi_ini
                 self._current_rssi_ref_data = self.live_rssi_ref
             else:
+                self._current_counter = counter_value
                 self._current_initiator = self.initiator_map.get(counter_value)
                 self._current_reflector = self.reflector_map.get(counter_value)
                 self._current_phase_slope_data = self.phase_slope_map.get(counter_value)
