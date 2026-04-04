@@ -27,6 +27,48 @@ class PlotsTabMixin:
                 spine.set_edgecolor(_Theme.Border)
             ax.grid(True, color=_Theme.PlotGridColor)
 
+    def _update_rssi_legend(self):
+        handles = [
+            Patch(facecolor=_Theme.PlotIniBarColor, edgecolor=_Theme.PlotIniBarColor,
+                  alpha=0.8, label='Initiator'),
+            Patch(facecolor=_Theme.PlotRefBarColor, edgecolor=_Theme.PlotRefBarColor,
+                  alpha=0.8, label='Reflector'),
+        ]
+        legend = self.ax_rssi.legend(handles=handles)
+        legend.get_frame().set_facecolor(_Theme.PlotBackground)
+        legend.get_frame().set_edgecolor(_Theme.Border)
+        for text, color in zip(legend.get_texts(), (_Theme.PlotIniBarColor, _Theme.PlotRefBarColor)):
+            text.set_color(color)
+
+    def _initialize_plot_artists(self):
+        self._phase_collection = PolyCollection([], facecolors=[_Theme.PlotPhaseBarColor],
+                                                edgecolors=['none'], antialiaseds=False, animated=True)
+        self.ax_phase.add_collection(self._phase_collection)
+        self._rssi_ini_collection = PolyCollection([], facecolors=[_Theme.PlotIniBarColor],
+                                                   edgecolors=['none'], antialiaseds=False, alpha=0.8, animated=True)
+        self.ax_rssi.add_collection(self._rssi_ini_collection)
+        self._rssi_ref_collection = PolyCollection([], facecolors=[_Theme.PlotRefBarColor],
+                                                   edgecolors=['none'], antialiaseds=False, alpha=0.8, animated=True)
+        self.ax_rssi.add_collection(self._rssi_ref_collection)
+        self._update_rssi_legend()
+        self._distance_text = self.ax_phase.text(
+            0.5, -0.22, "Distance: N/A",
+            transform=self.ax_phase.transAxes,
+            ha='center', va='top',
+            fontsize=16, color=_Theme.PlotForeground,
+            animated=True, clip_on=False,
+        )
+        self._force_full_redraw = True
+
+    def _supports_blit(self) -> bool:
+        return hasattr(self.canvas, 'copy_from_bbox')
+
+    def _on_canvas_draw(self, _event):
+        if not self._supports_blit():
+            return
+        self._blit_background = self.canvas.copy_from_bbox(self.fig.bbox)
+        self._force_full_redraw = False
+
     def _build_plots_tab(self, tab_frame: ttk.Frame):
         self.fig = Figure(figsize=(8, 8), dpi=100)
         self.ax_phase = self.fig.add_subplot(211)
@@ -52,110 +94,6 @@ class PlotsTabMixin:
 
         tab_frame.rowconfigure(0, weight=1)
         tab_frame.columnconfigure(0, weight=1)
-
-    def _initialize_plot_artists(self):
-        self._phase_collection = PolyCollection([], facecolors=[_Theme.PlotPhaseBarColor],
-                                                edgecolors=['none'], antialiaseds=False, animated=True)
-        self.ax_phase.add_collection(self._phase_collection)
-        self._rssi_ini_collection = PolyCollection([], facecolors=[_Theme.PlotIniBarColor],
-                                                   edgecolors=['none'], antialiaseds=False, alpha=0.8, animated=True)
-        self.ax_rssi.add_collection(self._rssi_ini_collection)
-        self._rssi_ref_collection = PolyCollection([], facecolors=[_Theme.PlotRefBarColor],
-                                                   edgecolors=['none'], antialiaseds=False, alpha=0.8, animated=True)
-        self.ax_rssi.add_collection(self._rssi_ref_collection)
-        self._update_rssi_legend()
-        self._distance_text = self.ax_phase.text(
-            0.5, -0.22, "Distance: N/A",
-            transform=self.ax_phase.transAxes,
-            ha='center', va='top',
-            fontsize=16, color=_Theme.PlotForeground,
-            animated=True, clip_on=False,
-        )
-        self._force_full_redraw = True
-
-    def _update_rssi_legend(self):
-        handles = [
-            Patch(facecolor=_Theme.PlotIniBarColor, edgecolor=_Theme.PlotIniBarColor,
-                  alpha=0.8, label='Initiator'),
-            Patch(facecolor=_Theme.PlotRefBarColor, edgecolor=_Theme.PlotRefBarColor,
-                  alpha=0.8, label='Reflector'),
-        ]
-        legend = self.ax_rssi.legend(handles=handles)
-        legend.get_frame().set_facecolor(_Theme.PlotBackground)
-        legend.get_frame().set_edgecolor(_Theme.Border)
-        for text, color in zip(legend.get_texts(), (_Theme.PlotIniBarColor, _Theme.PlotRefBarColor)):
-            text.set_color(color)
-
-    def _on_canvas_draw(self, _event):
-        if not self._supports_blit():
-            return
-        self._blit_background = self.canvas.copy_from_bbox(self.fig.bbox)
-        self._force_full_redraw = False
-
-    def _supports_blit(self) -> bool:
-        return hasattr(self.canvas, 'copy_from_bbox')
-
-    def _update_plots_tab(self):
-        self._update_phase_plot(self._current_phase_slope_data)
-        self._update_rssi_plot(self._current_rssi_ini_data, self._current_rssi_ref_data)
-        distance = calculate_distance_from_phase_slope(self._current_phase_slope_data) if self._current_phase_slope_data else None
-        if self._distance_text is not None:
-            self._distance_text.set_text(f"Distance: {distance:.2f} m" if distance is not None else "Distance: N/A")
-        self._render_plots()
-
-    def _update_phase_plot(self, phase_slope_data: Optional[Dict[int, float]]):
-        """Update the phase slope plot"""
-        if phase_slope_data and len(phase_slope_data) > 0:
-            sorted_channels = tuple(sorted(phase_slope_data.keys()))
-            phases = [phase_slope_data[ch] for ch in sorted_channels]
-            offset = phases[0]
-            phases = [v - offset for v in phases]
-        else:
-            sorted_channels = ()
-            phases = []
-
-        if sorted_channels != self._phase_channels:
-            self._phase_channels = sorted_channels
-            self._force_full_redraw = True
-
-        self._phase_collection.set_verts(self._bar_verts(sorted_channels, phases, 0.6))
-        self._update_phase_limits(sorted_channels, phases)
-
-    def _rssi_plot_bounds(self, values: List[float]) -> tuple[int, int]:
-        if not values:
-            return -100, 0
-
-        bottom = math.floor(min(values) / 10) * 10
-        top = math.ceil(max(values) / 10) * 10
-
-        return bottom, top
-
-    def _update_rssi_plot(self, rssi_ini_data: Optional[Dict[int, float]], rssi_ref_data: Optional[Dict[int, float]]):
-        """Update the RSSI plot"""
-        ini_channels = tuple(sorted(rssi_ini_data.keys())) if rssi_ini_data else ()
-        ref_channels = tuple(sorted(rssi_ref_data.keys())) if rssi_ref_data else ()
-        ini_values = [rssi_ini_data[ch] for ch in ini_channels] if rssi_ini_data else []
-        ref_values = [rssi_ref_data[ch] for ch in ref_channels] if rssi_ref_data else []
-        all_values = [*ini_values, *ref_values]
-        self._rssi_bottom_dbm, self._rssi_top_dbm = self._rssi_plot_bounds(all_values)
-        bar_bottom = min(self._rssi_bottom_dbm, self._rssi_ylim[0])
-        ini_heights = [value - bar_bottom for value in ini_values]
-        ref_heights = [value - bar_bottom for value in ref_values]
-
-        if ini_channels != self._rssi_ini_channels:
-            self._rssi_ini_channels = ini_channels
-            self._force_full_redraw = True
-
-        if ref_channels != self._rssi_ref_channels:
-            self._rssi_ref_channels = ref_channels
-            self._force_full_redraw = True
-
-        ini_positions = [ch - self._bar_width / 2 for ch in ini_channels]
-        ref_positions = [ch + self._bar_width / 2 for ch in ref_channels]
-        self._rssi_ini_collection.set_verts(self._bar_verts(ini_positions, ini_heights, self._bar_width, bar_bottom))
-        self._rssi_ref_collection.set_verts(self._bar_verts(ref_positions, ref_heights, self._bar_width, bar_bottom))
-
-        self._update_rssi_limits(ini_channels, ref_channels, self._rssi_bottom_dbm, self._rssi_top_dbm)
 
     def _update_phase_limits(self, channels: tuple[int, ...], values: List[float]):
         if channels:
@@ -185,6 +123,48 @@ class PlotsTabMixin:
             self._phase_ylim = new_ylim
             self._force_full_redraw = True
 
+    @staticmethod
+    def _bar_verts(positions, heights, width, bottom=0.0):
+        n = len(positions)
+        if n == 0:
+            return np.empty((0, 4, 2))
+        hw = width / 2
+        x = np.asarray(positions, dtype=np.float64)
+        h = np.asarray(heights, dtype=np.float64)
+        verts = np.empty((n, 4, 2), dtype=np.float64)
+        verts[:, 0, 0] = x - hw;  verts[:, 0, 1] = bottom
+        verts[:, 1, 0] = x - hw;  verts[:, 1, 1] = bottom + h
+        verts[:, 2, 0] = x + hw;  verts[:, 2, 1] = bottom + h
+        verts[:, 3, 0] = x + hw;  verts[:, 3, 1] = bottom
+        return verts
+
+    def _update_phase_plot(self, phase_slope_data: Optional[Dict[int, float]]):
+        """Update the phase slope plot"""
+        if phase_slope_data and len(phase_slope_data) > 0:
+            sorted_channels = tuple(sorted(phase_slope_data.keys()))
+            phases = [phase_slope_data[ch] for ch in sorted_channels]
+            offset = phases[0]
+            phases = [v - offset for v in phases]
+        else:
+            sorted_channels = ()
+            phases = []
+
+        if sorted_channels != self._phase_channels:
+            self._phase_channels = sorted_channels
+            self._force_full_redraw = True
+
+        self._phase_collection.set_verts(self._bar_verts(sorted_channels, phases, 0.6))
+        self._update_phase_limits(sorted_channels, phases)
+
+    def _rssi_plot_bounds(self, values: List[float]) -> tuple[int, int]:
+        if not values:
+            return -100, 0
+
+        bottom = math.floor(min(values) / 10) * 10
+        top = math.ceil(max(values) / 10) * 10
+
+        return bottom, top
+
     def _update_rssi_limits(
         self,
         ini_channels: tuple[int, ...],
@@ -209,6 +189,50 @@ class PlotsTabMixin:
             self.ax_rssi.set_ylim(*new_ylim)
             self._rssi_ylim = new_ylim
             self._force_full_redraw = True
+
+    def _update_rssi_plot(self, rssi_ini_data: Optional[Dict[int, float]], rssi_ref_data: Optional[Dict[int, float]]):
+        """Update the RSSI plot"""
+        ini_channels = tuple(sorted(rssi_ini_data.keys())) if rssi_ini_data else ()
+        ref_channels = tuple(sorted(rssi_ref_data.keys())) if rssi_ref_data else ()
+        ini_values = [rssi_ini_data[ch] for ch in ini_channels] if rssi_ini_data else []
+        ref_values = [rssi_ref_data[ch] for ch in ref_channels] if rssi_ref_data else []
+        all_values = [*ini_values, *ref_values]
+        self._rssi_bottom_dbm, self._rssi_top_dbm = self._rssi_plot_bounds(all_values)
+        bar_bottom = min(self._rssi_bottom_dbm, self._rssi_ylim[0])
+        ini_heights = [value - bar_bottom for value in ini_values]
+        ref_heights = [value - bar_bottom for value in ref_values]
+
+        if ini_channels != self._rssi_ini_channels:
+            self._rssi_ini_channels = ini_channels
+            self._force_full_redraw = True
+
+        if ref_channels != self._rssi_ref_channels:
+            self._rssi_ref_channels = ref_channels
+            self._force_full_redraw = True
+
+        ini_positions = [ch - self._bar_width / 2 for ch in ini_channels]
+        ref_positions = [ch + self._bar_width / 2 for ch in ref_channels]
+        self._rssi_ini_collection.set_verts(self._bar_verts(ini_positions, ini_heights, self._bar_width, bar_bottom))
+        self._rssi_ref_collection.set_verts(self._bar_verts(ref_positions, ref_heights, self._bar_width, bar_bottom))
+
+        self._update_rssi_limits(ini_channels, ref_channels, self._rssi_bottom_dbm, self._rssi_top_dbm)
+
+    def _deferred_bg_refresh(self):
+        """Redraw axes/ticks/grid in the background, then re-blit bar artists."""
+        self._bg_refresh_pending = False
+        self._force_full_redraw = False
+        self.canvas.draw()
+        if self._blit_background is not None:
+            self.canvas.restore_region(self._blit_background)
+            if self._phase_collection is not None:
+                self.ax_phase.draw_artist(self._phase_collection)
+            if self._distance_text is not None:
+                self.ax_phase.draw_artist(self._distance_text)
+            if self._rssi_ini_collection is not None:
+                self.ax_rssi.draw_artist(self._rssi_ini_collection)
+            if self._rssi_ref_collection is not None:
+                self.ax_rssi.draw_artist(self._rssi_ref_collection)
+            self.canvas.blit(self.fig.bbox)
 
     def _render_plots(self):
         def _draw_bar_artists():
@@ -244,34 +268,10 @@ class PlotsTabMixin:
                 self._bg_refresh_pending = True
                 self.root.after_idle(self._deferred_bg_refresh)
 
-    def _deferred_bg_refresh(self):
-        """Redraw axes/ticks/grid in the background, then re-blit bar artists."""
-        self._bg_refresh_pending = False
-        self._force_full_redraw = False
-        self.canvas.draw()
-        if self._blit_background is not None:
-            self.canvas.restore_region(self._blit_background)
-            if self._phase_collection is not None:
-                self.ax_phase.draw_artist(self._phase_collection)
-            if self._distance_text is not None:
-                self.ax_phase.draw_artist(self._distance_text)
-            if self._rssi_ini_collection is not None:
-                self.ax_rssi.draw_artist(self._rssi_ini_collection)
-            if self._rssi_ref_collection is not None:
-                self.ax_rssi.draw_artist(self._rssi_ref_collection)
-            self.canvas.blit(self.fig.bbox)
-
-    @staticmethod
-    def _bar_verts(positions, heights, width, bottom=0.0):
-        n = len(positions)
-        if n == 0:
-            return np.empty((0, 4, 2))
-        hw = width / 2
-        x = np.asarray(positions, dtype=np.float64)
-        h = np.asarray(heights, dtype=np.float64)
-        verts = np.empty((n, 4, 2), dtype=np.float64)
-        verts[:, 0, 0] = x - hw;  verts[:, 0, 1] = bottom
-        verts[:, 1, 0] = x - hw;  verts[:, 1, 1] = bottom + h
-        verts[:, 2, 0] = x + hw;  verts[:, 2, 1] = bottom + h
-        verts[:, 3, 0] = x + hw;  verts[:, 3, 1] = bottom
-        return verts
+    def _update_plots_tab(self):
+        self._update_phase_plot(self._current_phase_slope_data)
+        self._update_rssi_plot(self._current_rssi_ini_data, self._current_rssi_ref_data)
+        distance = calculate_distance_from_phase_slope(self._current_phase_slope_data) if self._current_phase_slope_data else None
+        if self._distance_text is not None:
+            self._distance_text.set_text(f"Distance: {distance:.2f} m" if distance is not None else "Distance: N/A")
+        self._render_plots()

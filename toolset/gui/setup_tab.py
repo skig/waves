@@ -33,6 +33,71 @@ _CAPABILITY_DESCRIPTIONS: Dict[str, str] = {
 class SetupTabMixin:
     """CS setup tab: connection status indicators and capabilities display."""
 
+    def _on_capabilities_copy(self, event):
+        """Copy capabilities text with only active (highlighted) values to clipboard."""
+        w = self._capabilities_text
+
+        def _tag_texts_on_line(tag, line):
+            texts = []
+            ranges = w.tag_ranges(tag)
+            for i in range(0, len(ranges), 2):
+                if int(str(ranges[i]).split('.')[0]) == line:
+                    texts.append(w.get(ranges[i], ranges[i + 1]))
+            return texts
+
+        num_lines = int(w.index('end-1c').split('.')[0])
+        result_lines = []
+        for line_num in range(1, num_lines + 1):
+            label = ''.join(_tag_texts_on_line('label', line_num))
+            active = '  '.join(_tag_texts_on_line('active', line_num))
+            result_lines.append(label + (active if active.strip() else 'None'))
+
+        self.root.clipboard_clear()
+        self.root.clipboard_append('\n'.join(result_lines))
+        return 'break'
+
+    def _on_capabilities_deselect(self, event):
+        """Deselect capability line and restore default description."""
+        w = self._capabilities_text
+        w.config(state=tk.NORMAL)
+        w.tag_remove('line_selected', '1.0', tk.END)
+        w.config(state=tk.DISABLED)
+        self._selected_capability_line = None
+        self._set_text_widget(self._capability_desc_text, _CAPABILITY_DESC_DEFAULT)
+        return 'break'
+
+    def _select_capability_line(self, line_num: int):
+        w = self._capabilities_text
+        w.config(state=tk.NORMAL)
+        w.tag_remove('line_selected', '1.0', tk.END)
+        w.tag_add('line_selected', f'{line_num}.0', f'{line_num}.end')
+        w.config(state=tk.DISABLED)
+
+        cap_idx = line_num - 1
+        self._selected_capability_line = cap_idx
+        if 0 <= cap_idx < len(self._capabilities_labels):
+            label = self._capabilities_labels[cap_idx]
+            desc = _CAPABILITY_DESCRIPTIONS.get(label, 'No description available.')
+        else:
+            desc = 'No description available.'
+        self._set_text_widget(self._capability_desc_text, desc)
+
+    def _on_capabilities_click(self, event):
+        """Select whole line in capabilities text and show description."""
+        idx = self._capabilities_text.index(f'@{event.x},{event.y}')
+        line_num = int(idx.split('.')[0])
+        self._select_capability_line(line_num)
+        self._capabilities_text.focus_set()
+        return 'break'
+
+    def _on_capabilities_key_navigate(self, delta: int):
+        """Move capability selection up or down by delta lines."""
+        if not self._capabilities_labels:
+            return
+        current = self._selected_capability_line if self._selected_capability_line is not None else -1
+        new_idx = max(0, min(len(self._capabilities_labels) - 1, current + delta))
+        self._select_capability_line(new_idx + 1)
+
     def _build_setup_tab(self, tab_frame: ttk.Frame):
         _SETUP_FIELDS = [
             ('connection', 'Connection'),
@@ -113,15 +178,6 @@ class SetupTabMixin:
                 indicator.create_oval(2, 2, 14, 14, fill='#2e7d32', outline='', tags='dot')
         self.root.after(0, _set)
 
-    def update_capabilities_text(self, text: str):
-        """Parse capabilities text and render with active/greyed segments. Thread-safe."""
-        try:
-            caps = CSCapabilities.from_text(text)
-        except Exception:
-            self.root.after(0, lambda: self._set_capabilities_plain(text))
-            return
-        self.root.after(0, lambda: self._render_capabilities(caps))
-
     def _set_capabilities_plain(self, text: str):
         self._capabilities_text.config(state=tk.NORMAL)
         self._capabilities_text.delete('1.0', tk.END)
@@ -147,67 +203,11 @@ class SetupTabMixin:
         self._selected_capability_line = None
         self._set_text_widget(self._capability_desc_text, _CAPABILITY_DESC_DEFAULT)
 
-    def _on_capabilities_copy(self, event):
-        """Copy capabilities text with only active (highlighted) values to clipboard."""
-        w = self._capabilities_text
-
-        def _tag_texts_on_line(tag, line):
-            texts = []
-            ranges = w.tag_ranges(tag)
-            for i in range(0, len(ranges), 2):
-                if int(str(ranges[i]).split('.')[0]) == line:
-                    texts.append(w.get(ranges[i], ranges[i + 1]))
-            return texts
-
-        num_lines = int(w.index('end-1c').split('.')[0])
-        result_lines = []
-        for line_num in range(1, num_lines + 1):
-            label = ''.join(_tag_texts_on_line('label', line_num))
-            active = '  '.join(_tag_texts_on_line('active', line_num))
-            result_lines.append(label + (active if active.strip() else 'None'))
-
-        self.root.clipboard_clear()
-        self.root.clipboard_append('\n'.join(result_lines))
-        return 'break'
-
-    def _on_capabilities_deselect(self, event):
-        """Deselect capability line and restore default description."""
-        w = self._capabilities_text
-        w.config(state=tk.NORMAL)
-        w.tag_remove('line_selected', '1.0', tk.END)
-        w.config(state=tk.DISABLED)
-        self._selected_capability_line = None
-        self._set_text_widget(self._capability_desc_text, _CAPABILITY_DESC_DEFAULT)
-        return 'break'
-
-    def _on_capabilities_click(self, event):
-        """Select whole line in capabilities text and show description."""
-        idx = self._capabilities_text.index(f'@{event.x},{event.y}')
-        line_num = int(idx.split('.')[0])
-        self._select_capability_line(line_num)
-        self._capabilities_text.focus_set()
-        return 'break'
-
-    def _on_capabilities_key_navigate(self, delta: int):
-        """Move capability selection up or down by delta lines."""
-        if not self._capabilities_labels:
+    def update_capabilities_text(self, text: str):
+        """Parse capabilities text and render with active/greyed segments. Thread-safe."""
+        try:
+            caps = CSCapabilities.from_text(text)
+        except Exception:
+            self.root.after(0, lambda: self._set_capabilities_plain(text))
             return
-        current = self._selected_capability_line if self._selected_capability_line is not None else -1
-        new_idx = max(0, min(len(self._capabilities_labels) - 1, current + delta))
-        self._select_capability_line(new_idx + 1)
-
-    def _select_capability_line(self, line_num: int):
-        w = self._capabilities_text
-        w.config(state=tk.NORMAL)
-        w.tag_remove('line_selected', '1.0', tk.END)
-        w.tag_add('line_selected', f'{line_num}.0', f'{line_num}.end')
-        w.config(state=tk.DISABLED)
-
-        cap_idx = line_num - 1
-        self._selected_capability_line = cap_idx
-        if 0 <= cap_idx < len(self._capabilities_labels):
-            label = self._capabilities_labels[cap_idx]
-            desc = _CAPABILITY_DESCRIPTIONS.get(label, 'No description available.')
-        else:
-            desc = 'No description available.'
-        self._set_text_widget(self._capability_desc_text, desc)
+        self.root.after(0, lambda: self._render_capabilities(caps))

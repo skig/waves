@@ -6,6 +6,21 @@ from toolset.cs_utils.cs_subevent import SubeventResults
 from toolset.processing.cs_phase_slope import calculate_phase_slope_data
 from toolset.processing.cs_rssi_calc import calculate_rssi_data
 
+
+def process_coupled_subevents(initiator: SubeventResults, reflector: SubeventResults, gui_callback: Optional[Callable] = None):
+    """Process coupled subevents and optionally update GUI.
+
+    Args:
+        initiator: Initiator subevent
+        reflector: Reflector subevent
+        gui_callback: Optional callback to update GUI
+    """
+    phase_slope_data = calculate_phase_slope_data(initiator, reflector)
+    rssi_data_ini, rssi_data_ref = calculate_rssi_data(initiator, reflector)
+
+    if gui_callback:
+        gui_callback(initiator, reflector, phase_slope_data, rssi_data_ini, rssi_data_ref)
+
 def dual_stream_consumer(initiator_queue: Queue, reflector_queue: Queue, gui_callback: Optional[Callable] = None):
     """
     Consume subevents from initiator and reflector queues and couple them by procedure_counter.
@@ -66,18 +81,3 @@ def dual_stream_consumer(initiator_queue: Queue, reflector_queue: Queue, gui_cal
         print(f"  Initiator procedure counters: {sorted(initiator_buffer.keys())}")
     if reflector_buffer:
         print(f"  Reflector procedure counters: {sorted(reflector_buffer.keys())}")
-
-
-def process_coupled_subevents(initiator: SubeventResults, reflector: SubeventResults, gui_callback: Optional[Callable] = None):
-    """Process coupled subevents and optionally update GUI.
-
-    Args:
-        initiator: Initiator subevent
-        reflector: Reflector subevent
-        gui_callback: Optional callback to update GUI
-    """
-    phase_slope_data = calculate_phase_slope_data(initiator, reflector)
-    rssi_data_ini, rssi_data_ref = calculate_rssi_data(initiator, reflector)
-
-    if gui_callback:
-        gui_callback(initiator, reflector, phase_slope_data, rssi_data_ini, rssi_data_ref)

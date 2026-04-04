@@ -51,11 +51,11 @@ class _ActiveTheme:
     def __init__(self, default: _ThemeColors):
         object.__setattr__(self, '_current', default)
 
-    def __getattr__(self, name: str):
-        return getattr(object.__getattribute__(self, '_current'), name)
-
     def set(self, theme: _ThemeColors):
         object.__setattr__(self, '_current', theme)
+
+    def __getattr__(self, name: str):
+        return getattr(object.__getattribute__(self, '_current'), name)
 
 
 LIGHT_THEME = _ThemeColors(

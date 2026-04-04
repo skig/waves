@@ -5,27 +5,6 @@ from toolset.data_sources.events import CSEvent, StatusEvent, CapabilitiesEvent,
 from toolset.cs_utils.cs_subevent_parser import parse_cs_subevent_result
 
 
-class FileDataSource(DataSource):
-    """Reads CS data from log file."""
-
-    def __init__(self, filepath: str):
-        self.filepath = filepath
-
-    def read(self) -> Iterator[CSEvent]:
-        """Yield events from file."""
-        with open(self.filepath) as f:
-            raw_text = f.read()
-
-        yield from _parse_log_lines(raw_text)
-
-        for subevent in _parse_subevents(raw_text):
-            if subevent is not None:
-                yield SubeventResultEvent(subevent)
-
-    def close(self):
-        pass
-
-
 def _parse_log_lines(text: str) -> Iterator[CSEvent]:
     """Scan log text for status markers and capabilities."""
     collecting_capabilities = False
@@ -67,3 +46,24 @@ def _parse_subevents(text: str):
         subevent_text = block[:next_marker] if next_marker != -1 else block
 
         yield parse_cs_subevent_result(subevent_text)
+
+
+class FileDataSource(DataSource):
+    """Reads CS data from log file."""
+
+    def __init__(self, filepath: str):
+        self.filepath = filepath
+
+    def read(self) -> Iterator[CSEvent]:
+        """Yield events from file."""
+        with open(self.filepath) as f:
+            raw_text = f.read()
+
+        yield from _parse_log_lines(raw_text)
+
+        for subevent in _parse_subevents(raw_text):
+            if subevent is not None:
+                yield SubeventResultEvent(subevent)
+
+    def close(self):
+        pass
