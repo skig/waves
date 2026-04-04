@@ -15,7 +15,7 @@ from toolset.gui.cs_theme import _Theme
 
 _STEP_VIS_CELL_W = 34    # width for a single-packet rect (modes 0, 1, 3)
 _STEP_VIS_TONE_W = 20    # width per tone rect (mode 2)
-_STEP_VIS_RECT_H = 28    # row height
+_STEP_VIS_RECT_H = 42    # row height
 _STEP_VIS_STEP_GAP = 6   # horizontal gap between consecutive step groups
 _STEP_VIS_PAD_X = 8      # left/right canvas padding
 _STEP_VIS_PAD_Y = 5      # top/bottom canvas padding
@@ -156,13 +156,14 @@ class StepsTabMixin:
             return [(role, _Theme.StepMissingBackground, _Theme.StepMissingForeground)]
 
         mode_num = step.mode.value
+        channel = step.channel
 
         if isinstance(step, CSStepMode0):
             if step.packet_quality == PacketQuality.AA_SUCCESS:
                 bg, fg = _Theme.StepGoodBackground, _Theme.StepGoodForeground
             else:
                 bg, fg = _Theme.StepBadBackground, _Theme.StepBadForeground
-            return [(f'{role}\n{mode_num}', bg, fg)]
+            return [(f'{role}\n{mode_num}\n{channel}', bg, fg)]
 
         if isinstance(step, CSStepMode2):
             cells = []
@@ -175,11 +176,11 @@ class StepsTabMixin:
                     color, fg = _Theme.ToneMediumBackground, _Theme.ToneMediumForeground
                 else:
                     color, fg = _Theme.ToneLowBackground, _Theme.ToneLowForeground
-                cells.append((f'{role}\n{mode_num}', color, fg))
-            return cells or [(f'{role}\n{mode_num}', _Theme.StepDefaultBackground, _Theme.StepDefaultForeground)]
+                cells.append((f'{role}\n{mode_num}\n{channel}', color, fg))
+            return cells or [(f'{role}\n{mode_num}\n{channel}', _Theme.StepDefaultBackground, _Theme.StepDefaultForeground)]
 
         # Mode 1, 3, or unrecognised
-        return [(f'{role}\n{mode_num}', _Theme.StepDefaultBackground, _Theme.StepDefaultForeground)]
+        return [(f'{role}\n{mode_num}\n{channel}', _Theme.StepDefaultBackground, _Theme.StepDefaultForeground)]
 
     def _redraw_steps_canvas(self):
         canvas = self.steps_canvas
