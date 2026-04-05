@@ -43,6 +43,12 @@ def main():
         help='Write raw UART data to log files in log/ folder'
     )
 
+    parser.add_argument(
+        '--ml',
+        action='store_true',
+        help='Enable the Sensing tab for ML-based features'
+    )
+
     theme_group = parser.add_mutually_exclusive_group()
     theme_group.add_argument(
         '--dark',
@@ -109,7 +115,7 @@ def main():
         initiator_source = FileDataSource(args.initiator)
         reflector_source = FileDataSource(args.reflector)
 
-    viewer = launch_viewer(dark_mode=args.dark_mode)
+    viewer = launch_viewer(dark_mode=args.dark_mode, ml=args.ml)
 
     initiator_producer = Thread(
         target=producer_worker,

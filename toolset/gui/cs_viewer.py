@@ -13,7 +13,7 @@ from matplotlib.collections import PolyCollection
 class CSViewer(SetupTabMixin, StepsTabMixin, PlotsTabMixin, SensingTabMixin):
     """GUI for viewing Channel Sounding data"""
 
-    def __init__(self, initiator_subevents: List = None, reflector_subevents: List = None, dark_mode: bool = True):
+    def __init__(self, initiator_subevents: List = None, reflector_subevents: List = None, dark_mode: bool = True, ml: bool = False):
         self.initiator_subevents = initiator_subevents or []
         self.reflector_subevents = reflector_subevents or []
 
@@ -70,6 +70,7 @@ class CSViewer(SetupTabMixin, StepsTabMixin, PlotsTabMixin, SensingTabMixin):
 
         all_counters = sorted(set(self.initiator_map.keys()) | set(self.reflector_map.keys()))
 
+        self._ml_enabled = ml
         _Theme.set(DARK_THEME if dark_mode else LIGHT_THEME)
 
         self.root = tk.Tk()
@@ -175,7 +176,8 @@ class CSViewer(SetupTabMixin, StepsTabMixin, PlotsTabMixin, SensingTabMixin):
         self._register_tab('setup', 'CS setup', self._build_setup_tab, self._update_setup_tab)
         self._register_tab('stats', 'Subevent steps', self._build_stats_tab, self._update_stats_tab)
         self._register_tab('plots', 'RSSI and phase slope', self._build_plots_tab, self._update_plots_tab)
-        self._register_tab('sensing', 'Sensing', self._build_sensing_tab, self._update_sensing_tab)
+        if self._ml_enabled:
+            self._register_tab('sensing', 'Sensing', self._build_sensing_tab, self._update_sensing_tab)
 
     def _register_tab(
         self,
@@ -313,7 +315,7 @@ class CSViewer(SetupTabMixin, StepsTabMixin, PlotsTabMixin, SensingTabMixin):
         self.root.mainloop()
 
 
-def launch_viewer(initiator_subevents: List = None, reflector_subevents: List = None, dark_mode: bool = True):
+def launch_viewer(initiator_subevents: List = None, reflector_subevents: List = None, dark_mode: bool = True, ml: bool = False):
     """Launch the CS Viewer GUI"""
-    viewer = CSViewer(initiator_subevents, reflector_subevents, dark_mode=dark_mode)
+    viewer = CSViewer(initiator_subevents, reflector_subevents, dark_mode=dark_mode, ml=ml)
     return viewer
