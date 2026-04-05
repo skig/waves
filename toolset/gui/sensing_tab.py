@@ -24,8 +24,7 @@ def _sensing_drop_reason(
     initiator: Optional[SubeventResults],
     reflector: Optional[SubeventResults],
     phase_data: Optional[Dict[int, float]],
-    rssi_ini: Optional[Dict[int, float]],
-    rssi_ref: Optional[Dict[int, float]],
+    amplitude_response: Optional[Dict[int, float]],
 ) -> Optional[str]:
     """Return a human-readable drop reason, or None if the sample is acceptable."""
     if initiator is None:
@@ -34,10 +33,8 @@ def _sensing_drop_reason(
         return 'reflector subevent is None'
     if not phase_data:
         return 'no phase slope data'
-    if not rssi_ini:
-        return 'no initiator RSSI data'
-    if not rssi_ref:
-        return 'no reflector RSSI data'
+    if not amplitude_response:
+        return 'no amplitude response data'
 
     bad_ini = _first_bad_tone(initiator)
     if bad_ini:
@@ -106,21 +103,19 @@ def _subevent_quality_ok(subevent: Optional[SubeventResults]) -> bool:
 
 def _build_feature_vector(
     phase_data: Optional[Dict[int, float]],
-    rssi_ini: Optional[Dict[int, float]],
-    rssi_ref: Optional[Dict[int, float]],
+    amplitude_response: Optional[Dict[int, float]],
     use_phase: bool = True,
-    use_rssi_ini: bool = True,
-    use_rssi_ref: bool = True,
+    use_amplitude_response: bool = True,
 ) -> Optional[np.ndarray]:
     """Build a fixed-length feature vector from per-channel dicts.
 
-    Layout: [phase_ch2..ch78 (excl. adv), rssi_ini_ch2..ch78, rssi_ref_ch2..ch78]
+    Layout: [phase_ch2..ch78 (excl. adv), amplitude_response_ch2..ch78]
     Missing channels are filled with 0. Sections can be disabled via use_* flags.
     """
-    if not phase_data and not rssi_ini and not rssi_ref:
+    if not phase_data and not amplitude_response:
         return None
 
-    vec = np.zeros(3 * _N_PHASE, dtype=np.float32)
+    vec = np.zeros(2 * _N_PHASE, dtype=np.float32)
 
     if phase_data and use_phase:
         channels = list(phase_data.keys())
@@ -130,21 +125,13 @@ def _build_feature_vector(
             if idx is not None:
                 vec[idx] = phase_data[ch] - offset
 
-    if rssi_ini and use_rssi_ini:
-        values = list(rssi_ini.values())
+    if amplitude_response and use_amplitude_response:
+        values = list(amplitude_response.values())
         offset = min(values)
-        for ch, val in rssi_ini.items():
+        for ch, val in amplitude_response.items():
             idx = _CHANNEL_INDEX.get(ch)
             if idx is not None:
                 vec[_N_PHASE + idx] = val - offset
-
-    if rssi_ref and use_rssi_ref:
-        values = list(rssi_ref.values())
-        offset = min(values)
-        for ch, val in rssi_ref.items():
-            idx = _CHANNEL_INDEX.get(ch)
-            if idx is not None:
-                vec[2 * _N_PHASE + idx] = val - offset
 
     return vec
 
@@ -192,11 +179,9 @@ class SensingTabMixin:
         feat_frame.grid(row=1, column=0, sticky=tk.W, pady=(0, 4))
         ttk.Label(feat_frame, text='Features:').grid(row=0, column=0, sticky=tk.W)
         self._sensing_use_phase = tk.BooleanVar(value=True)
-        self._sensing_use_rssi_ini = tk.BooleanVar(value=False)
-        self._sensing_use_rssi_ref = tk.BooleanVar(value=False)
+        self._sensing_use_amplitude_response = tk.BooleanVar(value=False)
         ttk.Checkbutton(feat_frame, text='Phase', variable=self._sensing_use_phase).grid(row=0, column=1, padx=(8, 0))
-        ttk.Checkbutton(feat_frame, text='RSSI ini', variable=self._sensing_use_rssi_ini).grid(row=0, column=2, padx=(4, 0))
-        ttk.Checkbutton(feat_frame, text='RSSI ref', variable=self._sensing_use_rssi_ref).grid(row=0, column=3, padx=(4, 0))
+        ttk.Checkbutton(feat_frame, text='Ampl. response', variable=self._sensing_use_amplitude_response).grid(row=0, column=2, padx=(4, 0))
 
         # ---- scatter plot ----------------------------------------
         self._sensing_fig = Figure(figsize=(7, 6), dpi=100)
@@ -375,20 +360,18 @@ class SensingTabMixin:
             initiator = self.initiator_map.get(counter)
             reflector = self.reflector_map.get(counter)
             phase_data = self.phase_slope_map.get(counter)
-            rssi_ini = self.rssi_ini_map.get(counter)
-            rssi_ref = self.rssi_ref_map.get(counter)
+            amplitude_response = self.amplitude_response_map.get(counter)
 
-            drop_reason = _sensing_drop_reason(initiator, reflector, phase_data, rssi_ini, rssi_ref)
+            drop_reason = _sensing_drop_reason(initiator, reflector, phase_data, amplitude_response)
             if drop_reason:
                 print(f'[SENSING] dropped subevent #{counter}: {drop_reason}')
                 dropped += 1
                 continue
 
             vec = _build_feature_vector(
-                phase_data, rssi_ini, rssi_ref,
+                phase_data, amplitude_response,
                 use_phase=self._sensing_use_phase.get(),
-                use_rssi_ini=self._sensing_use_rssi_ini.get(),
-                use_rssi_ref=self._sensing_use_rssi_ref.get(),
+                use_amplitude_response=self._sensing_use_amplitude_response.get(),
             )
             self._sensing_samples.append((label, vec))
             if label not in self._sensing_labels_order:
@@ -404,8 +387,7 @@ class SensingTabMixin:
             self._current_initiator,
             self._current_reflector,
             self._current_phase_slope_data,
-            self._current_rssi_ini_data,
-            self._current_rssi_ref_data,
+            self._current_amplitude_response_data,
         )
         if drop_reason:
             self._sensing_dropped += 1
@@ -417,11 +399,9 @@ class SensingTabMixin:
 
         vec = _build_feature_vector(
             self._current_phase_slope_data,
-            self._current_rssi_ini_data,
-            self._current_rssi_ref_data,
+            self._current_amplitude_response_data,
             use_phase=self._sensing_use_phase.get(),
-            use_rssi_ini=self._sensing_use_rssi_ini.get(),
-            use_rssi_ref=self._sensing_use_rssi_ref.get(),
+            use_amplitude_response=self._sensing_use_amplitude_response.get(),
         )
 
         label = self._sensing_label_var.get().strip()
@@ -436,14 +416,12 @@ class SensingTabMixin:
             return
 
         phase_data = getattr(self, '_current_phase_slope_data', None)
-        rssi_ini = getattr(self, '_current_rssi_ini_data', None)
-        rssi_ref = getattr(self, '_current_rssi_ref_data', None)
+        amplitude_response = getattr(self, '_current_amplitude_response_data', None)
 
         vec = _build_feature_vector(
-            phase_data, rssi_ini, rssi_ref,
+            phase_data, amplitude_response,
             use_phase=self._sensing_use_phase.get(),
-            use_rssi_ini=self._sensing_use_rssi_ini.get(),
-            use_rssi_ref=self._sensing_use_rssi_ref.get(),
+            use_amplitude_response=self._sensing_use_amplitude_response.get(),
         )
         if vec is None:
             return

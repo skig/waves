@@ -4,7 +4,7 @@ from queue import Queue
 from typing import Dict, Tuple, Optional, Callable
 from toolset.cs_utils.cs_subevent import SubeventResults
 from toolset.processing.cs_phase_slope import calculate_phase_slope_data
-from toolset.processing.cs_rssi_calc import calculate_rssi_data
+from toolset.processing.cs_amplitude_response import calculate_amplitude_response_data
 
 def dual_stream_consumer(initiator_queue: Queue, reflector_queue: Queue, gui_callback: Optional[Callable] = None):
     """
@@ -77,7 +77,7 @@ def process_coupled_subevents(initiator: SubeventResults, reflector: SubeventRes
         gui_callback: Optional callback to update GUI
     """
     phase_slope_data = calculate_phase_slope_data(initiator, reflector)
-    rssi_data_ini, rssi_data_ref = calculate_rssi_data(initiator, reflector)
+    amplitude_response_data = calculate_amplitude_response_data(initiator, reflector)
 
     if gui_callback:
-        gui_callback(initiator, reflector, phase_slope_data, rssi_data_ini, rssi_data_ref)
+        gui_callback(initiator, reflector, phase_slope_data, amplitude_response_data)

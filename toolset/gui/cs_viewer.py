@@ -21,15 +21,13 @@ class CSViewer(SetupTabMixin, StepsTabMixin, PlotsTabMixin, SensingTabMixin):
         self.reflector_map = {se.procedure_counter: se for se in self.reflector_subevents if se is not None}
 
         self.phase_slope_map: Dict[int, Dict[int, float]] = {}
-        self.rssi_ini_map: Dict[int, Dict[int, float]] = {}
-        self.rssi_ref_map: Dict[int, Dict[int, float]] = {}
+        self.amplitude_response_map: Dict[int, Dict[int, float]] = {}
 
         self.live_mode = True
         self.live_initiator: Optional[SubeventResults] = None
         self.live_reflector: Optional[SubeventResults] = None
         self.live_phase_slope: Optional[Dict[int, float]] = None
-        self.live_rssi_ini: Optional[Dict[int, float]] = None
-        self.live_rssi_ref: Optional[Dict[int, float]] = None
+        self.live_amplitude_response: Optional[Dict[int, float]] = None
         self.gui_refresh_interval_ms = 100
         self._live_render_scheduled = False
         self._pending_live_counter: Optional[int] = None
@@ -37,17 +35,14 @@ class CSViewer(SetupTabMixin, StepsTabMixin, PlotsTabMixin, SensingTabMixin):
         self._current_initiator: Optional[SubeventResults] = None
         self._current_reflector: Optional[SubeventResults] = None
         self._current_phase_slope_data: Optional[Dict[int, float]] = None
-        self._current_rssi_ini_data: Optional[Dict[int, float]] = None
-        self._current_rssi_ref_data: Optional[Dict[int, float]] = None
+        self._current_amplitude_response_data: Optional[Dict[int, float]] = None
         self._tab_update_handlers: Dict[str, Callable[[], None]] = {}
         self._tab_indices: Dict[str, int] = {}
         self._active_tab_key: Optional[str] = None
         self._phase_channels: tuple[int, ...] = ()
-        self._rssi_ini_channels: tuple[int, ...] = ()
-        self._rssi_ref_channels: tuple[int, ...] = ()
+        self._amplitude_response_channels: tuple[int, ...] = ()
         self._phase_collection: Optional[PolyCollection] = None
-        self._rssi_ini_collection: Optional[PolyCollection] = None
-        self._rssi_ref_collection: Optional[PolyCollection] = None
+        self._amplitude_response_collection: Optional[PolyCollection] = None
         self._distance_text = None
         self._blit_background = None
         self._force_full_redraw = True
@@ -175,7 +170,7 @@ class CSViewer(SetupTabMixin, StepsTabMixin, PlotsTabMixin, SensingTabMixin):
     def _create_tabs(self):
         self._register_tab('setup', 'CS setup', self._build_setup_tab, self._update_setup_tab)
         self._register_tab('stats', 'Subevent steps', self._build_stats_tab, self._update_stats_tab)
-        self._register_tab('plots', 'RSSI and phase slope', self._build_plots_tab, self._update_plots_tab)
+        self._register_tab('plots', 'Amplitude response and phase slope', self._build_plots_tab, self._update_plots_tab)
         if self._ml_enabled:
             self._register_tab('sensing', 'Sensing', self._build_sensing_tab, self._update_sensing_tab)
 
@@ -236,15 +231,13 @@ class CSViewer(SetupTabMixin, StepsTabMixin, PlotsTabMixin, SensingTabMixin):
                 self._current_initiator = self.live_initiator
                 self._current_reflector = self.live_reflector
                 self._current_phase_slope_data = self.live_phase_slope
-                self._current_rssi_ini_data = self.live_rssi_ini
-                self._current_rssi_ref_data = self.live_rssi_ref
+                self._current_amplitude_response_data = self.live_amplitude_response
             else:
                 self._current_counter = counter_value
                 self._current_initiator = self.initiator_map.get(counter_value)
                 self._current_reflector = self.reflector_map.get(counter_value)
                 self._current_phase_slope_data = self.phase_slope_map.get(counter_value)
-                self._current_rssi_ini_data = self.rssi_ini_map.get(counter_value)
-                self._current_rssi_ref_data = self.rssi_ref_map.get(counter_value)
+                self._current_amplitude_response_data = self.amplitude_response_map.get(counter_value)
 
             self._update_current_tab_content()
 
@@ -263,20 +256,18 @@ class CSViewer(SetupTabMixin, StepsTabMixin, PlotsTabMixin, SensingTabMixin):
         if update_handler is not None:
             update_handler()
 
-    def update_live_data(self, initiator: SubeventResults, reflector: SubeventResults, phase_slope_data: Dict[int, float], rssi_data_ini: Dict[int, float], rssi_data_ref: Dict[int, float]):
+    def update_live_data(self, initiator: SubeventResults, reflector: SubeventResults, phase_slope_data: Dict[int, float], amplitude_response_data: Dict[int, float]):
         """Update live data from consumer thread - thread-safe"""
         def _update():
             self.live_initiator = initiator
             self.live_reflector = reflector
             self.live_phase_slope = phase_slope_data
-            self.live_rssi_ini = rssi_data_ini
-            self.live_rssi_ref = rssi_data_ref
+            self.live_amplitude_response = amplitude_response_data
 
             self.initiator_map[initiator.procedure_counter] = initiator
             self.reflector_map[reflector.procedure_counter] = reflector
             self.phase_slope_map[initiator.procedure_counter] = phase_slope_data
-            self.rssi_ini_map[initiator.procedure_counter] = rssi_data_ini
-            self.rssi_ref_map[initiator.procedure_counter] = rssi_data_ref
+            self.amplitude_response_map[initiator.procedure_counter] = amplitude_response_data
 
             all_counters = sorted(set(self.initiator_map.keys()) | set(self.reflector_map.keys()))
             if all_counters:

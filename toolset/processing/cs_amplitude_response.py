@@ -3,11 +3,28 @@ from math import log, sqrt
 from toolset.cs_utils.cs_subevent import SubeventResults
 from toolset.cs_utils.cs_step import CSStepMode2, ToneQualityIndicatorExtensionSlot
 
-def calculate_rssi_data(initiator: SubeventResults, reflector: SubeventResults) -> Dict[int, float]:
+def avg_dbm(a, b):
+    a_mw = 10 ** (a / 10)
+    b_mw = 10 ** (b / 10)
+    avg_mw = (a_mw + b_mw) / 2
+    return 10 * log(avg_mw, 10)
+
+def calculate_amplitude_response(initiator_rssi_vals, reflector_rssi_vals):
+    tx_power_dbm = 0 # hardcode TX power to 0 dBm for simplicity, even though it can be different depending on CS configuration
+    amplitude_response = {}
+    for channel in initiator_rssi_vals:
+        initiator_dbm = initiator_rssi_vals[channel]
+        reflector_dbm = initiator_dbm
+        if channel in reflector_rssi_vals:
+            reflector_dbm = reflector_rssi_vals[channel]
+        amplitude_response[channel] = avg_dbm(initiator_dbm, reflector_dbm) - tx_power_dbm
+    return amplitude_response
+
+def calculate_amplitude_response_data(initiator: SubeventResults, reflector: SubeventResults) -> Dict[int, float]:
     initiator_rssi_vals = _extract_channel_rssi(initiator)
     reflector_rssi_vals = _extract_channel_rssi(reflector)
 
-    return initiator_rssi_vals, reflector_rssi_vals
+    return calculate_amplitude_response(initiator_rssi_vals, reflector_rssi_vals)
 
 def _extract_channel_rssi(subevent: SubeventResults) -> Dict[int, float]:
     channel_rssi = {}
