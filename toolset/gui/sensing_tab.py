@@ -165,6 +165,10 @@ class SensingTabMixin:
         self._sensing_labels_order: List[str] = []   # insertion order
         self._sensing_dropped: int = 0
 
+        # PCA transform for live projection: (mean, std, pca_center, Vt2)
+        self._sensing_pca_transform: Optional[Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]] = None
+        self._sensing_live_artist = None
+
         # ---- controls row ----------------------------------------
         ctrl = ttk.Frame(tab_frame)
         ctrl.grid(row=0, column=0, sticky=(tk.W, tk.E), pady=(0, 8))
@@ -227,6 +231,7 @@ class SensingTabMixin:
     def _update_sensing_tab(self):
         if self._sensing_recording:
             self._sensing_capture_current()
+        self._sensing_update_live_dot()
 
     # ------------------------------------------------------------------
     # Controls
@@ -250,6 +255,8 @@ class SensingTabMixin:
         self._sensing_labels_order.clear()
         self._sensing_dropped = 0
         self._sensing_recording = False
+        self._sensing_pca_transform = None
+        self._sensing_live_artist = None
         self._sensing_record_btn.config(text='Start recording')
         self._sensing_status.config(text='0 samples')
         self._sensing_ax.cla()
@@ -293,6 +300,18 @@ class SensingTabMixin:
         self._sensing_ax.set_xlabel('Component 1')
         self._sensing_ax.set_ylabel('Component 2')
         self._apply_sensing_plot_theme()
+
+        # Add live-dot artist (empty until next subevent arrives)
+        self._sensing_live_artist = self._sensing_ax.scatter(
+            [], [], marker='*', s=250, color='white',
+            edgecolors='black', linewidths=0.8, zorder=6, label='_nolegend_'
+        )
+
+        # Store transform: (feature mean, feature std, pca center, Vt top-2)
+        X_norm_center = X_norm.mean(axis=0)
+        _, _, Vt_full = np.linalg.svd(X_norm - X_norm_center, full_matrices=False)
+        self._sensing_pca_transform = (mean, std, X_norm_center, Vt_full[:2])
+
         self._sensing_canvas.draw()
         self._sensing_status.config(text=f'{len(self._sensing_samples)} samples — PCA done')
 
@@ -367,6 +386,55 @@ class SensingTabMixin:
         if label not in self._sensing_labels_order:
             self._sensing_labels_order.append(label)
         self._sensing_status.config(text=f'{len(self._sensing_samples)} samples  [{label}]')
+
+    def _sensing_update_live_dot(self):
+        """Project the current subevent into PCA space and move the live-dot marker."""
+        if self._sensing_pca_transform is None or self._sensing_live_artist is None:
+            return
+
+        phase_data = getattr(self, '_current_phase_slope_data', None)
+        rssi_ini = getattr(self, '_current_rssi_ini_data', None)
+        rssi_ref = getattr(self, '_current_rssi_ref_data', None)
+
+        vec = _build_feature_vector(
+            phase_data, rssi_ini, rssi_ref,
+            use_phase=self._sensing_use_phase.get(),
+            use_rssi_ini=self._sensing_use_rssi_ini.get(),
+            use_rssi_ref=self._sensing_use_rssi_ref.get(),
+        )
+        if vec is None:
+            return
+
+        mean, std, pca_center, Vt2 = self._sensing_pca_transform
+        vec_norm = (vec - mean) / std
+        vec_centered = vec_norm - pca_center
+        pt = vec_centered @ Vt2.T  # shape (2,)
+
+        self._sensing_live_artist.set_offsets([[pt[0], pt[1]]])
+
+        # Expand axes limits if the live dot falls outside the current view
+        xmin, xmax = self._sensing_ax.get_xlim()
+        ymin, ymax = self._sensing_ax.get_ylim()
+        x_margin = (xmax - xmin) * 0.1 or 0.1
+        y_margin = (ymax - ymin) * 0.1 or 0.1
+        changed = False
+        if pt[0] < xmin + x_margin:
+            xmin = pt[0] - x_margin
+            changed = True
+        if pt[0] > xmax - x_margin:
+            xmax = pt[0] + x_margin
+            changed = True
+        if pt[1] < ymin + y_margin:
+            ymin = pt[1] - y_margin
+            changed = True
+        if pt[1] > ymax - y_margin:
+            ymax = pt[1] + y_margin
+            changed = True
+        if changed:
+            self._sensing_ax.set_xlim(xmin, xmax)
+            self._sensing_ax.set_ylim(ymin, ymax)
+
+        self._sensing_canvas.draw_idle()
 
     @staticmethod
     def _reduce(X: np.ndarray) -> np.ndarray:
