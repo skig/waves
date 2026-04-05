@@ -165,8 +165,9 @@ class SensingTabMixin:
         self._sensing_labels_order: List[str] = []   # insertion order
         self._sensing_dropped: int = 0
 
-        # PCA transform for live projection: (mean, std, pca_center, Vt2)
-        self._sensing_pca_transform: Optional[Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]] = None
+        # Projection transform for live dot: (mean, std, center, W2) where W2 has shape (2, n_features)
+        # Shared by PCA and LDA; projection = (x_norm - center) @ W2.T
+        self._sensing_projection_transform: Optional[Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]] = None
         self._sensing_live_artist = None
 
         # ---- controls row ----------------------------------------
@@ -183,6 +184,7 @@ class SensingTabMixin:
         ttk.Button(ctrl, text='Add all loaded', command=self._on_sensing_add_all_loaded).grid(row=0, column=3, padx=(6, 0))
         ttk.Button(ctrl, text='Clear all', command=self._on_sensing_clear).grid(row=0, column=4, padx=(6, 0))
         ttk.Button(ctrl, text='Run PCA', command=self._on_sensing_run_pca).grid(row=0, column=5, padx=(6, 0))
+        ttk.Button(ctrl, text='Run LDA', command=self._on_sensing_run_lda).grid(row=0, column=6, padx=(6, 0))
         self._sensing_status = ttk.Label(ctrl, text='0 samples')
         self._sensing_status.grid(row=0, column=7, padx=(16, 0), sticky=tk.W)
 
@@ -231,7 +233,7 @@ class SensingTabMixin:
     def _update_sensing_tab(self):
         if self._sensing_recording:
             self._sensing_capture_current()
-        self._sensing_update_live_dot()
+        # self._sensing_update_live_dot()
 
     # ------------------------------------------------------------------
     # Controls
@@ -255,7 +257,7 @@ class SensingTabMixin:
         self._sensing_labels_order.clear()
         self._sensing_dropped = 0
         self._sensing_recording = False
-        self._sensing_pca_transform = None
+        self._sensing_projection_transform = None
         self._sensing_live_artist = None
         self._sensing_record_btn.config(text='Start recording')
         self._sensing_status.config(text='0 samples')
@@ -272,20 +274,66 @@ class SensingTabMixin:
         labels = [s[0] for s in self._sensing_samples]
         X = np.stack([s[1] for s in self._sensing_samples])
 
-        # Normalize: subtract mean, divide by std (per feature)
         mean = X.mean(axis=0)
         std = X.std(axis=0)
         std[std == 0] = 1.0
         X_norm = (X - mean) / std
 
-        embedding = self._reduce(X_norm)
+        center = X_norm.mean(axis=0)
+        _, _, Vt = np.linalg.svd(X_norm - center, full_matrices=False)
+        embedding = (X_norm - center) @ Vt[:2].T
 
+        unique_labels = list(dict.fromkeys(labels))
+        title = f'PCA — {len(self._sensing_samples)} samples, {len(unique_labels)} labels'
+        self._sensing_plot_embedding(embedding, labels, unique_labels, title, mean, std, center, Vt[:2])
+        self._sensing_status.config(text=f'{len(self._sensing_samples)} samples — PCA done')
+
+    def _on_sensing_run_lda(self):
+        if len(self._sensing_samples) < 4:
+            self._sensing_status.config(text='Need at least 4 samples')
+            return
+
+        labels = [s[0] for s in self._sensing_samples]
+        unique_labels = list(dict.fromkeys(labels))
+        if len(unique_labels) < 2:
+            self._sensing_status.config(text='Need at least 2 labels for LDA')
+            return
+
+        X = np.stack([s[1] for s in self._sensing_samples])
+        mean = X.mean(axis=0)
+        std = X.std(axis=0)
+        std[std == 0] = 1.0
+        X_norm = (X - mean) / std
+
+        W = self._fit_lda(X_norm, labels)
+        if W is None:
+            self._sensing_status.config(text='LDA failed — try more samples')
+            return
+
+        center = X_norm.mean(axis=0)
+        embedding = (X_norm - center) @ W  # (n, 2)
+
+        title = f'LDA — {len(self._sensing_samples)} samples, {len(unique_labels)} labels'
+        self._sensing_plot_embedding(embedding, labels, unique_labels, title, mean, std, center, W.T)
+        self._sensing_status.config(text=f'{len(self._sensing_samples)} samples — LDA done')
+
+    def _sensing_plot_embedding(
+        self,
+        embedding: np.ndarray,
+        labels: list,
+        unique_labels: list,
+        title: str,
+        mean: np.ndarray,
+        std: np.ndarray,
+        center: np.ndarray,
+        W2: np.ndarray,
+    ):
+        """Render a 2-D embedding on the scatter plot and store the projection transform."""
         self._sensing_ax.cla()
         self._apply_sensing_plot_theme()
 
-        unique_labels = list(dict.fromkeys(labels))  # preserve insertion order
         for i, lbl in enumerate(unique_labels):
-            mask = [l == lbl for l in labels]
+            mask = np.array([l == lbl for l in labels])
             pts = embedding[mask]
             color = _LABEL_COLORS[i % len(_LABEL_COLORS)]
             self._sensing_ax.scatter(pts[:, 0], pts[:, 1], label=lbl, color=color, alpha=0.7, s=30)
@@ -296,24 +344,19 @@ class SensingTabMixin:
         for text in legend.get_texts():
             text.set_color(_Theme.PlotForeground)
 
-        self._sensing_ax.set_title(f'PCA — {len(self._sensing_samples)} samples, {len(unique_labels)} labels')
+        self._sensing_ax.set_title(title)
         self._sensing_ax.set_xlabel('Component 1')
         self._sensing_ax.set_ylabel('Component 2')
         self._apply_sensing_plot_theme()
 
-        # Add live-dot artist (empty until next subevent arrives)
+        # Live-dot artist (empty until next subevent arrives)
         self._sensing_live_artist = self._sensing_ax.scatter(
             [], [], marker='*', s=250, color='white',
             edgecolors='black', linewidths=0.8, zorder=6, label='_nolegend_'
         )
-
-        # Store transform: (feature mean, feature std, pca center, Vt top-2)
-        X_norm_center = X_norm.mean(axis=0)
-        _, _, Vt_full = np.linalg.svd(X_norm - X_norm_center, full_matrices=False)
-        self._sensing_pca_transform = (mean, std, X_norm_center, Vt_full[:2])
-
+        # Store transform: projection of x_norm -> (x_norm - center) @ W2.T
+        self._sensing_projection_transform = (mean, std, center, W2)
         self._sensing_canvas.draw()
-        self._sensing_status.config(text=f'{len(self._sensing_samples)} samples — PCA done')
 
     # ------------------------------------------------------------------
     # Internal helpers
@@ -389,7 +432,7 @@ class SensingTabMixin:
 
     def _sensing_update_live_dot(self):
         """Project the current subevent into PCA space and move the live-dot marker."""
-        if self._sensing_pca_transform is None or self._sensing_live_artist is None:
+        if self._sensing_projection_transform is None or self._sensing_live_artist is None:
             return
 
         phase_data = getattr(self, '_current_phase_slope_data', None)
@@ -405,10 +448,10 @@ class SensingTabMixin:
         if vec is None:
             return
 
-        mean, std, pca_center, Vt2 = self._sensing_pca_transform
+        mean, std, center, W2 = self._sensing_projection_transform
         vec_norm = (vec - mean) / std
-        vec_centered = vec_norm - pca_center
-        pt = vec_centered @ Vt2.T  # shape (2,)
+        vec_centered = vec_norm - center
+        pt = vec_centered @ W2.T  # shape (2,)
 
         self._sensing_live_artist.set_offsets([[pt[0], pt[1]]])
 
@@ -435,6 +478,54 @@ class SensingTabMixin:
             self._sensing_ax.set_ylim(ymin, ymax)
 
         self._sensing_canvas.draw_idle()
+
+    @staticmethod
+    def _fit_lda(X_norm: np.ndarray, labels: list) -> Optional[np.ndarray]:
+        """LDA via PCA pre-whitening + scatter matrices.
+
+        Returns W of shape (n_features, 2) so that the 2-D projection of a
+        normalised sample x is  (x - center) @ W,  or None on failure.
+        Pre-whitening with PCA avoids the singular within-class scatter matrix
+        that occurs when the number of features exceeds the number of samples.
+        """
+        unique = list(dict.fromkeys(labels))
+        n, d = X_norm.shape
+
+        # Step 1: PCA whitening to a safe dimensionality
+        center = X_norm.mean(axis=0)
+        X_c = (X_norm - center).astype(np.float64)
+        _, _, Vt_pca = np.linalg.svd(X_c, full_matrices=False)
+        n_pca = min(n - 1, d)
+        pca_W = Vt_pca[:n_pca].T    # (d, n_pca)
+        X_pca = X_c @ pca_W         # (n, n_pca)
+
+        # Step 2: within-class (S_W) and between-class (S_B) scatter in PCA space
+        p = X_pca.shape[1]
+        overall_mean = X_pca.mean(axis=0)
+        S_W = np.zeros((p, p), dtype=np.float64)
+        S_B = np.zeros((p, p), dtype=np.float64)
+        for lbl in unique:
+            mask = np.array([l == lbl for l in labels])
+            X_cl = X_pca[mask]
+            n_c = len(X_cl)
+            mean_c = X_cl.mean(axis=0)
+            S_W += (X_cl - mean_c).T @ (X_cl - mean_c)
+            dm = (mean_c - overall_mean).reshape(-1, 1)
+            S_B += n_c * (dm @ dm.T)
+
+        trace = np.trace(S_W)
+        S_W += np.eye(p) * (trace / p * 1e-6 + 1e-10)  # mild regularisation
+
+        try:
+            M = np.linalg.solve(S_W, S_B)
+            vals, vecs = np.linalg.eig(M)
+            vals, vecs = vals.real, vecs.real
+            idx = np.argsort(vals)[::-1]
+            W_lda = vecs[:, idx[:2]]   # (n_pca, 2)
+        except np.linalg.LinAlgError:
+            return None
+
+        return pca_W @ W_lda           # (d, 2)
 
     @staticmethod
     def _reduce(X: np.ndarray) -> np.ndarray:
