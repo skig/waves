@@ -43,11 +43,11 @@ As of now the tool contains:
 - Python toolset with GUI parsing samples UART output and performing basic processing of the data, such as calculating magnitude and phase shift of each step and printing the statistics of the measurements.
 
 TODO:
-- inverse fft
-- music algorithm
+- multiple antenna paths support
 - mode-3 support
 - missing channels interpolation
 - extract and use cs configuration, and selected procedure parameters
+- improve test coverage
 
 ## Links
 
