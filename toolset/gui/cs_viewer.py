@@ -11,6 +11,11 @@ from toolset.gui.music_tab import MusicTabMixin
 from toolset.gui.sensing_tab import SensingTabMixin
 from matplotlib.collections import PolyCollection
 
+# Skip a render when this many subevents have accumulated since the last rendered
+# one. Prevents back-to-back renders (which starve the mainloop) when a slow
+# tab (e.g. MUSIC eigendecomposition) takes longer than gui_refresh_interval_ms.
+_LAG_SKIP_COUNT = 3
+
 
 class CSViewer(SetupTabMixin, StepsTabMixin, PlotsTabMixin, IFftTabMixin, MusicTabMixin, SensingTabMixin):
     """GUI for viewing Channel Sounding data"""
@@ -33,6 +38,7 @@ class CSViewer(SetupTabMixin, StepsTabMixin, PlotsTabMixin, IFftTabMixin, MusicT
         self.gui_refresh_interval_ms = 100
         self._live_render_scheduled = False
         self._pending_live_counter: Optional[int] = None
+        self._last_rendered_counter: Optional[int] = None
         self._current_counter: Optional[int] = None
         self._current_initiator: Optional[SubeventResults] = None
         self._current_reflector: Optional[SubeventResults] = None
@@ -286,7 +292,9 @@ class CSViewer(SetupTabMixin, StepsTabMixin, PlotsTabMixin, IFftTabMixin, MusicT
         self.root.after(0, _update)
 
     def _flush_live_render(self):
-        """Render latest live data at most once per refresh interval."""
+        """Render latest live data at most once per refresh interval.
+        Skips render when more than _LAG_SKIP_COUNT subevents have accumulated
+        to avoid back-to-back renders that block the mainloop."""
         self._live_render_scheduled = False
 
         if not self.live_mode:
@@ -296,6 +304,17 @@ class CSViewer(SetupTabMixin, StepsTabMixin, PlotsTabMixin, IFftTabMixin, MusicT
         if counter is None:
             return
 
+        lag = (counter - self._last_rendered_counter) if self._last_rendered_counter is not None else 0
+        if lag > _LAG_SKIP_COUNT:
+            # Too many subevents queued up. Advance the reference so the next
+            # flush renders the latest data instead of an already-stale frame.
+            self._last_rendered_counter = counter
+            self._live_render_scheduled = True
+            self.root.after(self.gui_refresh_interval_ms, self._flush_live_render)
+            print(f"GUI dropped {lag} frames to catch up with live data (counter={counter})")
+            return
+
+        self._last_rendered_counter = counter
         self.counter_var.set(counter)
         self._update_display()
 
