@@ -1,6 +1,6 @@
 from typing import Dict, Optional
 import numpy as np
-from toolset.constants import SPEED_OF_LIGHT
+from toolset.constants import SPEED_OF_LIGHT, BLE_CS_STEP_1MHZ
 
 
 def compute_ifft_response(
@@ -14,7 +14,7 @@ def compute_ifft_response(
 
     ch_min, ch_max = common_channels[0], common_channels[-1]
     n = ch_max - ch_min + 1
-    f_step = 1e6  # BLE CS 1 MHz channel spacing
+    f_step = BLE_CS_STEP_1MHZ
 
     spectrum = np.zeros(n, dtype=complex)
     for ch in common_channels:

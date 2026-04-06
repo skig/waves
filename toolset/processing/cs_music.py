@@ -1,6 +1,6 @@
 from typing import Dict, Optional
 import numpy as np
-from toolset.constants import SPEED_OF_LIGHT
+from toolset.constants import SPEED_OF_LIGHT, BLE_CS_STEP_1MHZ
 
 # --- Hardcoded MUSIC parameters ---
 _N_SIGNALS = 1        # number of signal sources (dominant paths)
@@ -19,7 +19,7 @@ def compute_music_spectrum(
     if n < 4:
         return None, None
 
-    f_step = 1e6  # BLE CS 1 MHz channel spacing
+    f_step = BLE_CS_STEP_1MHZ
 
     # Build complex channel vector
     x = np.array([
