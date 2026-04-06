@@ -1,3 +1,4 @@
+import math
 import tkinter as tk
 from tkinter import ttk
 from typing import Optional
@@ -48,13 +49,13 @@ class MusicTabMixin:
 
     def _initialize_music_artists(self):
         (self._music_line,) = self._music_ax.plot(
-            [], [], color=_Theme.PlotPhaseBarColor, linewidth=1.2, animated=True
+            [], [], color=_Theme.PlotPhaseBarColor, linewidth=1.2, animated=True, antialiased=False
         )
         (self._music_peak_vline,) = self._music_ax.plot(
             [0, 0], [0, 1],
             transform=self._music_ax.get_xaxis_transform(),
             color=_Theme.PlotIniBarColor, linewidth=1.5, linestyle='--',
-            animated=True, visible=False,
+            animated=True, visible=False, antialiased=False,
         )
         self._music_blit_background = None
         self._music_force_full_redraw = True
@@ -86,7 +87,7 @@ class MusicTabMixin:
             self._music_peak_vline.set_visible(True)
             new_xlim = (0.0, float(x[-1]))
             y_max = float(np.max(y)) if len(y) else 1.0
-            new_ylim = (0.0, y_max * 1.1 if y_max > 0 else 1.0)
+            new_ylim = (0.0, math.ceil(y_max * 1.1) if y_max > 0 else 1.0)
         else:
             self._music_line.set_data([], [])
             self._music_peak_vline.set_visible(False)
