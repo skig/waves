@@ -40,6 +40,8 @@ def _extract_channel_rssi(subevent: SubeventResults) -> Dict[int, float]:
 
         avg_i, avg_q = _calculate_average_rssi(step)
         mag = sqrt(avg_i ** 2 + avg_q ** 2)
+        # can fail here if mag = 0 in case of subevent aborted on one device only, need to fix
+        # use log/20260406_115854_initiator.txt log/20260406_115854_reflector.txt files to reproduce
         rssi_dbm = 20 * log(abs(mag / 2048), 10) + rpl_dbm
         # TODO: if channel_rssi is not empty, we need to do something smart. Maybe find average or something like that?
         channel_rssi[step.channel] = rssi_dbm
