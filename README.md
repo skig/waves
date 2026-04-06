@@ -8,7 +8,10 @@ Channel sounding is BLE 6.0 feature allowing devices to perform measurements of 
 
 The main use-case of the BLE CS is distance measurement allowing users to find distance between two BLE devices.
 
-The repo provides different tools to learn basic principles of CS tones data processing. It does not contain any ready-to-use solution for distance measurement, but rather serves as a playground for learning and experimenting with BLE CS data.
+The repo provides different tools to learn basic principles of CS tones data processing.
+
+> [!NOTE]
+> The repo does not contain any ready-to-use solution for distance measurement, but rather serves as a playground for learning and experimenting with BLE CS data.
 
 ## Target audience
 
@@ -23,7 +26,9 @@ Embedded enthusiasts curious about Channel sounding under the hood.
 * cs_ref  - channel sounding reflector firmware sample for nrf54l15dk
 * toolset - various python tools for channel sounding PBR data processing
 
-## How to build and run
+## Tutorial
+
+###  How to build and run
 
 Using physical initiator and reflector boards:
 - install NCS 3.2.2
@@ -34,9 +39,54 @@ Using physical initiator and reflector boards:
 Using pre-recorded logs:
 - `python3 run.py -i tests/ini.txt -r tests/ref.txt`
 
-## Current status
+### How to use the tool
 
-<img src="imgs/screenshot.png" width="800"/>
+After starting the tool, it parses the data from Initiator and Reflector, performs processing of the data and displays the results in a GUI. It is possible to scroll through the subevents manually or use "Live" mode to automatically follow the latest subevent.
+
+Python application has the following tabs:
+
+1. CS setup - displays Channel sounding setup procedures and details of capabilities supported by a device.
+2. Subevent steps - displays detailed information about each step of the subevent.
+3. Amplitude response and phase slope - displays plots of estimated amplitude response and phase shift of the RF channel between two devices, and distance measured based on the phase slope.
+4. IFFT - displays plot of inverse FFT of the RF channel response and corresponding distance estimation.
+5. MUSIC - displays plot of power spectrum of the RF channel response estimated using mutiple signal classification (MUSIC) algorithm and corresponding distance estimation.
+
+### CS setup tab
+
+<img src="imgs/cs_setup_procedures.png" width="250"/>
+
+Before starting CS procedure, Initiator and Reflector devices have to connect, encrypt connection, run capabilities exchange and CS configuration procedures. The CS setup tab displays status of these procedures, and normally they should be all marked green.
+
+<img src="imgs/cs_capabilities.png" width="250"/>
+
+After CS capabilities exchange procedure, the tool displays the capabilities of a device. It provides information about each field in the CS capabilities to give better understanding of what CS features are supported and what possible CS features exist.
+
+### Subevent steps tab
+
+<img src="imgs/cs_steps.png" width="400"/>
+
+While performing Channel sounding procedure, the tool parses and displays details of each step of the subevent, such as channel number, tone duration, RSSI, etc. This information is useful for debugging and understanding how CS procedure works under the hood.
+
+### Amplitude response and phase slope tab
+
+<img src="imgs/cs_phase_slope.png" width="400"/>
+
+The I/Q measurements provided by the mode-2 steps can be used to estimate the amplitude response of an RF channel between devices (by how much the signal is attenuated on different frequencies) and the phase shift (by how much the signal is delayed on different frequencies). This data is shown as plots, and the phase slope is used to estimate the distance between devices.
+
+### IFFT
+
+<img src="imgs/cs_ifft.png" width="400"/>
+
+Phase and amplitude response of the RF channel can be used to estimate impulse response of the RF channel using inverse FFT. It is mapped directly to the distance estimation.
+
+Due to limited amount of frequency samples, the IFFT estimation has limited resolution and accuracy.
+### MUSIC
+
+<img src="imgs/cs_music.png" width="400"/>
+
+To improve resolution of the distance estimation, the tool implements MUSIC algorithm. It also allows to estimate impluse response of the RF channel and estimate the distance more accurately but within assumtions of the algorithm (such as single path channel, given noise nature etc)
+
+## Current status
 
 As of now the tool contains:
 - CS Initiator and Reflector samples based on Nordic Semiconductor Connect SDK 3.2.2. The samples perform channel sounding procedure and log raw CS data through UART to a PC.
