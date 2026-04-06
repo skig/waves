@@ -7,11 +7,12 @@ from toolset.gui.setup_tab import SetupTabMixin
 from toolset.gui.steps_tab import StepsTabMixin
 from toolset.gui.plots_tab import PlotsTabMixin
 from toolset.gui.ifft_tab import IFftTabMixin
+from toolset.gui.music_tab import MusicTabMixin
 from toolset.gui.sensing_tab import SensingTabMixin
 from matplotlib.collections import PolyCollection
 
 
-class CSViewer(SetupTabMixin, StepsTabMixin, PlotsTabMixin, IFftTabMixin, SensingTabMixin):
+class CSViewer(SetupTabMixin, StepsTabMixin, PlotsTabMixin, IFftTabMixin, MusicTabMixin, SensingTabMixin):
     """GUI for viewing Channel Sounding data"""
 
     def __init__(self, initiator_subevents: List = None, reflector_subevents: List = None, dark_mode: bool = True, ml: bool = False):
@@ -173,6 +174,7 @@ class CSViewer(SetupTabMixin, StepsTabMixin, PlotsTabMixin, IFftTabMixin, Sensin
         self._register_tab('stats', 'Subevent steps', self._build_stats_tab, self._update_stats_tab)
         self._register_tab('plots', 'Amplitude response and phase slope', self._build_plots_tab, self._update_plots_tab)
         self._register_tab('ifft', 'IFFT', self._build_ifft_tab, self._update_ifft_tab)
+        self._register_tab('music', 'MUSIC', self._build_music_tab, self._update_music_tab)
         if self._ml_enabled:
             self._register_tab('sensing', 'Sensing', self._build_sensing_tab, self._update_sensing_tab)
 
