@@ -30,6 +30,9 @@ Embedded enthusiasts curious about Channel sounding under the hood.
 
 ###  How to build and run
 
+Install Python dependencies first:
+- `pip3 install -r requirements.txt`
+
 Using physical initiator and reflector boards:
 - install NCS 3.2.2
 - build cs_ini and cs_ref samples (can skip if using prebuilt .hex for standard nrf54l15 devkits)
