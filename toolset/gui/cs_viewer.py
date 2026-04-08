@@ -9,6 +9,7 @@ from toolset.gui.plots_tab import PlotsTabMixin
 from toolset.gui.ifft_tab import IFftTabMixin
 from toolset.gui.music_tab import MusicTabMixin
 from toolset.gui.sensing_tab import SensingTabMixin
+from toolset.gui.gesture_tab import GestureTabMixin
 from matplotlib.collections import PolyCollection
 
 # Skip a render when this many subevents have accumulated since the last rendered
@@ -17,7 +18,7 @@ from matplotlib.collections import PolyCollection
 _LAG_SKIP_COUNT = 3
 
 
-class CSViewer(SetupTabMixin, StepsTabMixin, PlotsTabMixin, IFftTabMixin, MusicTabMixin, SensingTabMixin):
+class CSViewer(SetupTabMixin, StepsTabMixin, PlotsTabMixin, IFftTabMixin, MusicTabMixin, SensingTabMixin, GestureTabMixin):
     """GUI for viewing Channel Sounding data"""
 
     def __init__(self, initiator_subevents: List = None, reflector_subevents: List = None, dark_mode: bool = True, ml: bool = False, on_close: Callable = None):
@@ -185,6 +186,7 @@ class CSViewer(SetupTabMixin, StepsTabMixin, PlotsTabMixin, IFftTabMixin, MusicT
         self._register_tab('music', 'MUSIC', self._build_music_tab, self._update_music_tab)
         if self._ml_enabled:
             self._register_tab('sensing', 'Sensing', self._build_sensing_tab, self._update_sensing_tab)
+            self._register_tab('gesture', 'Gesture', self._build_gesture_tab, self._update_gesture_tab)
 
     def _register_tab(
         self,
