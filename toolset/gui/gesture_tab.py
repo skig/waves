@@ -29,11 +29,15 @@ class GestureTabMixin:
         self._gesture_recording = False
         self._gesture_window_buffer: List[np.ndarray] = []
         self._gesture_window_start: Optional[float] = None
+        self._gesture_static_target: int = 0
+        self._gesture_static_collected: int = 0
 
         # Stored data: list of (label, feature_vector)
         self._gesture_samples: List[Tuple[str, np.ndarray]] = []
         self._gesture_labels_order: List[str] = []
         self._gesture_dropped: int = 0
+
+        self._gesture_static_count = tk.IntVar(value=1)
 
         # Trained model (sklearn Pipeline or None)
         self._gesture_pipeline = None
@@ -52,18 +56,27 @@ class GestureTabMixin:
         ttk.Radiobutton(mode_frame, text='Dynamic', variable=self._gesture_mode,
                         value='dynamic', command=self._on_gesture_mode_changed).grid(row=0, column=2, padx=(4, 0))
 
+        # Static sample count
+        self._gesture_count_label = ttk.Label(mode_frame, text='Count:')
+        self._gesture_count_label.grid(row=0, column=3, padx=(20, 0))
+        self._gesture_count_spin = ttk.Spinbox(
+            mode_frame, from_=1, to=1000, increment=1,
+            textvariable=self._gesture_static_count, width=5,
+        )
+        self._gesture_count_spin.grid(row=0, column=4, padx=(4, 0))
+
         # Window duration (only for dynamic)
-        ttk.Label(mode_frame, text='Window (s):').grid(row=0, column=3, padx=(20, 0))
+        ttk.Label(mode_frame, text='Window (s):').grid(row=0, column=5, padx=(20, 0))
         self._gesture_window_spin = ttk.Spinbox(
             mode_frame, from_=0.5, to=10.0, increment=0.5,
             textvariable=self._gesture_window_duration, width=5,
         )
-        self._gesture_window_spin.grid(row=0, column=4, padx=(4, 0))
+        self._gesture_window_spin.grid(row=0, column=6, padx=(4, 0))
 
         # Feature checkboxes
-        ttk.Label(mode_frame, text='Features:').grid(row=0, column=5, padx=(20, 0))
-        ttk.Checkbutton(mode_frame, text='Phase', variable=self._gesture_use_phase).grid(row=0, column=6, padx=(4, 0))
-        ttk.Checkbutton(mode_frame, text='Ampl. response', variable=self._gesture_use_amplitude_response).grid(row=0, column=7, padx=(4, 0))
+        ttk.Label(mode_frame, text='Features:').grid(row=0, column=7, padx=(20, 0))
+        ttk.Checkbutton(mode_frame, text='Phase', variable=self._gesture_use_phase).grid(row=0, column=8, padx=(4, 0))
+        ttk.Checkbutton(mode_frame, text='Ampl. response', variable=self._gesture_use_amplitude_response).grid(row=0, column=9, padx=(4, 0))
 
         # ---- row 1: recording controls ----
         ctrl = ttk.Frame(tab_frame)
@@ -118,8 +131,12 @@ class GestureTabMixin:
     # ------------------------------------------------------------------
 
     def _update_gesture_tab(self):
-        if self._gesture_recording and self._gesture_mode.get() == 'dynamic':
-            self._gesture_capture_to_buffer()
+        if self._gesture_recording:
+            mode = self._gesture_mode.get()
+            if mode == 'dynamic':
+                self._gesture_capture_to_buffer()
+            elif mode == 'static':
+                self._gesture_capture_static_batch()
 
     # ------------------------------------------------------------------
     # Mode
@@ -127,8 +144,11 @@ class GestureTabMixin:
 
     def _on_gesture_mode_changed(self):
         is_dynamic = self._gesture_mode.get() == 'dynamic'
-        state = tk.NORMAL if is_dynamic else tk.DISABLED
-        self._gesture_window_spin.config(state=state)
+        dyn_state = tk.NORMAL if is_dynamic else tk.DISABLED
+        static_state = tk.DISABLED if is_dynamic else tk.NORMAL
+        self._gesture_window_spin.config(state=dyn_state)
+        self._gesture_count_spin.config(state=static_state)
+        self._gesture_count_label.config(state=static_state)
         if self._gesture_recording:
             self._gesture_stop_recording()
 
@@ -144,7 +164,14 @@ class GestureTabMixin:
 
         mode = self._gesture_mode.get()
         if mode == 'static':
-            self._gesture_record_static(label)
+            target = self._gesture_static_count.get()
+            if target <= 1:
+                self._gesture_record_static(label)
+            else:
+                if self._gesture_recording:
+                    self._gesture_stop_recording()
+                else:
+                    self._gesture_start_static_batch(label, target)
         else:
             if self._gesture_recording:
                 self._gesture_stop_recording()
@@ -179,6 +206,57 @@ class GestureTabMixin:
             self._gesture_labels_order.append(label)
         self._gesture_update_summary()
         self._gesture_status.config(text=f'{len(self._gesture_samples)} samples — recorded static [{label}]')
+
+    def _gesture_start_static_batch(self, label: str, target: int):
+        """Begin auto-collecting static samples until target count is reached."""
+        self._gesture_recording = True
+        self._gesture_static_target = target
+        self._gesture_static_collected = 0
+        self._gesture_record_btn.config(text='Stop recording')
+        self._gesture_status.config(text=f'Collecting 0/{target} static samples [{label}]...')
+
+    def _gesture_capture_static_batch(self):
+        """Auto-capture one static sample per update call during batch collection."""
+        label = self._gesture_label_var.get().strip()
+        if not label:
+            self._gesture_stop_recording()
+            return
+
+        phase_data = getattr(self, '_current_phase_slope_data', None)
+        amplitude_response = getattr(self, '_current_amplitude_response_data', None)
+        initiator = getattr(self, '_current_initiator', None)
+        reflector = getattr(self, '_current_reflector', None)
+
+        drop_reason = sensing_drop_reason(initiator, reflector, phase_data, amplitude_response)
+        if drop_reason:
+            self._gesture_dropped += 1
+            return
+
+        vec = build_feature_vector(
+            phase_data, amplitude_response,
+            use_phase=self._gesture_use_phase.get(),
+            use_amplitude_response=self._gesture_use_amplitude_response.get(),
+        )
+        if vec is None:
+            return
+
+        self._gesture_samples.append((label, vec))
+        if label not in self._gesture_labels_order:
+            self._gesture_labels_order.append(label)
+        self._gesture_static_collected += 1
+
+        target = self._gesture_static_target
+        self._gesture_status.config(
+            text=f'Collecting {self._gesture_static_collected}/{target} static samples [{label}]...'
+        )
+
+        if self._gesture_static_collected >= target:
+            self._gesture_recording = False
+            self._gesture_record_btn.config(text='Record sample')
+            self._gesture_update_summary()
+            self._gesture_status.config(
+                text=f'{len(self._gesture_samples)} samples — collected {self._gesture_static_collected} static [{label}]'
+            )
 
     def _gesture_start_dynamic_recording(self):
         """Begin collecting subevents into the window buffer."""
@@ -258,6 +336,8 @@ class GestureTabMixin:
         self._gesture_recording = False
         self._gesture_window_buffer.clear()
         self._gesture_window_start = None
+        self._gesture_static_target = 0
+        self._gesture_static_collected = 0
         self._gesture_pipeline = None
         self._gesture_classes.clear()
         self._gesture_record_btn.config(text='Record sample')
