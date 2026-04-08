@@ -4,6 +4,8 @@ import tkinter as tk
 from tkinter import ttk, filedialog
 from typing import Dict, List, Optional, Tuple
 import numpy as np
+from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
+from matplotlib.figure import Figure
 from toolset.processing.sensing_features import (
     build_feature_vector, sensing_drop_reason,
 )
@@ -32,6 +34,10 @@ class GestureTabMixin:
         self._gesture_samples: List[Tuple[str, np.ndarray]] = []
         self._gesture_labels_order: List[str] = []
         self._gesture_dropped: int = 0
+
+        # Trained model (sklearn Pipeline or None)
+        self._gesture_pipeline = None
+        self._gesture_classes: List[str] = []
 
         # Use-feature flags (same as sensing tab)
         self._gesture_use_phase = tk.BooleanVar(value=True)
@@ -85,11 +91,24 @@ class GestureTabMixin:
         )
         self._gesture_summary.grid(row=2, column=0, sticky=(tk.W, tk.E), pady=(0, 8))
 
-        # ---- row 3: placeholder for future training/recognition UI ----
-        self._gesture_main_frame = ttk.Frame(tab_frame)
-        self._gesture_main_frame.grid(row=3, column=0, sticky=(tk.W, tk.E, tk.N, tk.S))
+        # ---- row 3: training controls ----
+        train_frame = ttk.Frame(tab_frame)
+        train_frame.grid(row=3, column=0, sticky=tk.W, pady=(0, 4))
+        ttk.Button(train_frame, text='Train', command=self._on_gesture_train).grid(row=0, column=0)
+        self._gesture_train_status = ttk.Label(train_frame, text='')
+        self._gesture_train_status.grid(row=0, column=1, padx=(12, 0), sticky=tk.W)
 
-        tab_frame.rowconfigure(3, weight=1)
+        # ---- row 4: confusion matrix plot ----
+        self._gesture_fig = Figure(figsize=(5, 4), dpi=100)
+        self._gesture_ax = self._gesture_fig.add_subplot(111)
+        self._gesture_ax.set_visible(False)
+        self._apply_gesture_plot_theme()
+
+        self._gesture_canvas = FigureCanvasTkAgg(self._gesture_fig, master=tab_frame)
+        self._gesture_canvas.get_tk_widget().configure(bg=_Theme.PlotBackground)
+        self._gesture_canvas.get_tk_widget().grid(row=4, column=0, sticky=(tk.W, tk.E, tk.N, tk.S))
+
+        tab_frame.rowconfigure(4, weight=1)
         tab_frame.columnconfigure(0, weight=1)
 
         self._on_gesture_mode_changed()
@@ -239,8 +258,15 @@ class GestureTabMixin:
         self._gesture_recording = False
         self._gesture_window_buffer.clear()
         self._gesture_window_start = None
+        self._gesture_pipeline = None
+        self._gesture_classes.clear()
         self._gesture_record_btn.config(text='Record sample')
         self._gesture_status.config(text='0 samples')
+        self._gesture_train_status.config(text='')
+        self._gesture_ax.cla()
+        self._gesture_ax.set_visible(False)
+        self._apply_gesture_plot_theme()
+        self._gesture_canvas.draw()
         self._gesture_update_summary()
 
     # ------------------------------------------------------------------
@@ -357,3 +383,101 @@ class GestureTabMixin:
         self._gesture_summary.delete('1.0', tk.END)
         self._gesture_summary.insert(tk.END, '\n'.join(lines))
         self._gesture_summary.config(state=tk.DISABLED)
+
+    # ------------------------------------------------------------------
+    # Plot theme
+    # ------------------------------------------------------------------
+
+    def _apply_gesture_plot_theme(self):
+        self._gesture_fig.patch.set_facecolor(_Theme.PlotBackground)
+        self._gesture_ax.set_facecolor(_Theme.PlotBackground)
+        self._gesture_ax.tick_params(colors=_Theme.PlotForeground, which='both')
+        self._gesture_ax.xaxis.label.set_color(_Theme.PlotForeground)
+        self._gesture_ax.yaxis.label.set_color(_Theme.PlotForeground)
+        self._gesture_ax.title.set_color(_Theme.PlotForeground)
+        for spine in self._gesture_ax.spines.values():
+            spine.set_edgecolor(_Theme.Border)
+
+    # ------------------------------------------------------------------
+    # Training
+    # ------------------------------------------------------------------
+
+    def _on_gesture_train(self):
+        from sklearn.svm import SVC
+        from sklearn.preprocessing import StandardScaler
+        from sklearn.pipeline import Pipeline
+        from sklearn.model_selection import StratifiedKFold, cross_val_score, cross_val_predict
+        from sklearn.metrics import confusion_matrix
+
+        # Validate we have enough data
+        labels = [s[0] for s in self._gesture_samples]
+        unique_labels = list(dict.fromkeys(labels))
+        if len(unique_labels) < 2:
+            self._gesture_train_status.config(text='Need at least 2 different labels')
+            return
+
+        label_counts = {}
+        for lbl in labels:
+            label_counts[lbl] = label_counts.get(lbl, 0) + 1
+        too_few = [lbl for lbl, cnt in label_counts.items() if cnt < 3]
+        if too_few:
+            self._gesture_train_status.config(
+                text=f'Need ≥3 samples per label. Too few: {", ".join(too_few)}'
+            )
+            return
+
+        X = np.stack([s[1] for s in self._gesture_samples])
+        y = np.array(labels)
+
+        pipeline = Pipeline([
+            ('scaler', StandardScaler()),
+            ('svc', SVC(kernel='rbf', probability=True)),
+        ])
+
+        # Cross-validation
+        n_splits = min(5, min(label_counts.values()))
+        cv = StratifiedKFold(n_splits=n_splits, shuffle=True, random_state=42)
+
+        scores = cross_val_score(pipeline, X, y, cv=cv, scoring='accuracy')
+        y_pred = cross_val_predict(pipeline, X, y, cv=cv)
+
+        # Train final model on all data
+        pipeline.fit(X, y)
+        self._gesture_pipeline = pipeline
+        self._gesture_classes = list(pipeline.classes_)
+
+        # Show confusion matrix
+        cm = confusion_matrix(y, y_pred, labels=unique_labels)
+        self._gesture_plot_confusion_matrix(cm, unique_labels)
+
+        acc_mean = scores.mean() * 100
+        acc_std = scores.std() * 100
+        self._gesture_train_status.config(
+            text=f'CV accuracy: {acc_mean:.1f}% ± {acc_std:.1f}%  ({n_splits}-fold)  |  Model ready'
+        )
+
+    def _gesture_plot_confusion_matrix(self, cm: np.ndarray, labels: List[str]):
+        ax = self._gesture_ax
+        ax.cla()
+        ax.set_visible(True)
+        self._apply_gesture_plot_theme()
+
+        n = len(labels)
+        im = ax.imshow(cm, interpolation='nearest', cmap='Blues', aspect='equal')
+
+        # Annotate cells
+        thresh = cm.max() / 2.0
+        for i in range(n):
+            for j in range(n):
+                color = 'white' if cm[i, j] > thresh else _Theme.PlotForeground
+                ax.text(j, i, str(cm[i, j]), ha='center', va='center', color=color, fontsize=12)
+
+        ax.set_xticks(range(n))
+        ax.set_yticks(range(n))
+        ax.set_xticklabels(labels, rotation=45, ha='right')
+        ax.set_yticklabels(labels)
+        ax.set_xlabel('Predicted')
+        ax.set_ylabel('True')
+        ax.set_title('Confusion Matrix (cross-validation)')
+        self._gesture_fig.tight_layout()
+        self._gesture_canvas.draw()
