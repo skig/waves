@@ -1,3 +1,5 @@
+import time
+from threading import Event
 from typing import Iterator, Optional
 import serial
 from toolset.data_sources.base import DataSource, _STATUS_MARKERS
@@ -18,6 +20,11 @@ class UartDataSource(DataSource):
         self._line_buffer = ""
         self._collecting_capabilities = False
         self._capabilities_lines: list[str] = []
+        self._stop_event: Optional[Event] = None
+
+    def set_stop_event(self, stop_event: Event):
+        """Provide a threading.Event that signals the read loop to exit."""
+        self._stop_event = stop_event
 
     def enable_logging(self, log_file: Optional[str]):
         """Start logging raw UART data to a file."""
@@ -72,7 +79,7 @@ class UartDataSource(DataSource):
         try:
             self.open()
 
-            while True:
+            while not (self._stop_event and self._stop_event.is_set()):
                 if self.serial_conn.in_waiting > 0:
                     chunk = self.serial_conn.read(self.serial_conn.in_waiting)
                     try:
@@ -114,6 +121,9 @@ class UartDataSource(DataSource):
                         else:
                             # Don't have complete subevent yet, wait for more data
                             break
+                else:
+                    # No data yet — brief sleep so stop_event is checked promptly
+                    time.sleep(0.01)
 
         except serial.SerialException as e:
             print(f"Serial error on {self.port}: {e}")
@@ -123,6 +133,13 @@ class UartDataSource(DataSource):
     def close(self):
         """Close serial connection."""
         if self.serial_conn and self.serial_conn.is_open:
-            self.serial_conn.close()
+            try:
+                self.serial_conn.close()
+            except OSError:
+                pass
         if self.log_handle:
-            self.log_handle.close()
+            try:
+                self.log_handle.close()
+            except OSError:
+                pass
+            self.log_handle = None

@@ -2,6 +2,7 @@
 
 import argparse
 import os
+import signal
 import time
 from datetime import datetime
 from queue import Queue
@@ -93,6 +94,9 @@ def main():
         initiator_source = UartDataSource(args.initiator, baudrate=1000000)
         reflector_source = UartDataSource(args.reflector, baudrate=1000000)
 
+        initiator_source.set_stop_event(stop_event)
+        reflector_source.set_stop_event(stop_event)
+
         initiator_source.open()
         reflector_source.open()
 
@@ -115,7 +119,19 @@ def main():
         initiator_source = FileDataSource(args.initiator)
         reflector_source = FileDataSource(args.reflector)
 
-    viewer = launch_viewer(dark_mode=args.dark_mode, ml=args.ml)
+    def shutdown():
+        """Signal all threads to stop and close open data sources."""
+        stop_event.set()
+        initiator_source.close()
+        reflector_source.close()
+
+    viewer = launch_viewer(dark_mode=args.dark_mode, ml=args.ml, on_close=shutdown)
+
+    def _sigint_handler(sig, frame):
+        shutdown()
+        viewer.root.quit()
+
+    signal.signal(signal.SIGINT, _sigint_handler)
 
     initiator_producer = Thread(
         target=producer_worker,
@@ -124,19 +140,22 @@ def main():
             'status_callback': viewer.update_connection_status,
             'capabilities_callback': viewer.update_capabilities_text,
         },
-        name="InitiatorProducer"
+        name="InitiatorProducer",
+        daemon=True,
     )
 
     reflector_producer = Thread(
         target=producer_worker,
         args=(reflector_source, reflector_queue, stop_event),
-        name="ReflectorProducer"
+        name="ReflectorProducer",
+        daemon=True,
     )
 
     consumer = Thread(
         target=dual_stream_consumer,
         args=(initiator_queue, reflector_queue, viewer.update_live_data),
-        name="Consumer"
+        name="Consumer",
+        daemon=True,
     )
 
     print("Starting data processing pipeline...")
@@ -144,15 +163,9 @@ def main():
     reflector_producer.start()
     consumer.start()
 
-    try:
-        viewer.run()
-    except KeyboardInterrupt:
-        print("\nStopping...")
+    viewer.run()
 
-    stop_event.set()
-    initiator_producer.join(timeout=1)
-    reflector_producer.join(timeout=1)
-    consumer.join(timeout=1)
+    shutdown()
     print("\nProcessing complete!")
 
 

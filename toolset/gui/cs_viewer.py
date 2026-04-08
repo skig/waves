@@ -20,7 +20,7 @@ _LAG_SKIP_COUNT = 3
 class CSViewer(SetupTabMixin, StepsTabMixin, PlotsTabMixin, IFftTabMixin, MusicTabMixin, SensingTabMixin):
     """GUI for viewing Channel Sounding data"""
 
-    def __init__(self, initiator_subevents: List = None, reflector_subevents: List = None, dark_mode: bool = True, ml: bool = False):
+    def __init__(self, initiator_subevents: List = None, reflector_subevents: List = None, dark_mode: bool = True, ml: bool = False, on_close: Callable = None):
         self.initiator_subevents = initiator_subevents or []
         self.reflector_subevents = reflector_subevents or []
 
@@ -74,11 +74,13 @@ class CSViewer(SetupTabMixin, StepsTabMixin, PlotsTabMixin, IFftTabMixin, MusicT
         all_counters = sorted(set(self.initiator_map.keys()) | set(self.reflector_map.keys()))
 
         self._ml_enabled = ml
+        self._on_close_callback = on_close
         _Theme.set(DARK_THEME if dark_mode else LIGHT_THEME)
 
         self.root = tk.Tk()
         self.root.title("Channel Sounding Viewer")
         self.root.geometry("1760x900")
+        self.root.protocol("WM_DELETE_WINDOW", self._handle_close)
         self._apply_ttk_theme()
 
         self._create_widgets(all_counters)
@@ -324,12 +326,18 @@ class CSViewer(SetupTabMixin, StepsTabMixin, PlotsTabMixin, IFftTabMixin, MusicT
         widget.insert(tk.END, value)
         widget.config(state=tk.DISABLED)
 
+    def _handle_close(self):
+        """Called when the window's close button is pressed."""
+        if self._on_close_callback:
+            self._on_close_callback()
+        self.root.destroy()
+
     def run(self):
         """Start the GUI event loop"""
         self.root.mainloop()
 
 
-def launch_viewer(initiator_subevents: List = None, reflector_subevents: List = None, dark_mode: bool = True, ml: bool = False):
+def launch_viewer(initiator_subevents: List = None, reflector_subevents: List = None, dark_mode: bool = True, ml: bool = False, on_close: Callable = None):
     """Launch the CS Viewer GUI"""
-    viewer = CSViewer(initiator_subevents, reflector_subevents, dark_mode=dark_mode, ml=ml)
+    viewer = CSViewer(initiator_subevents, reflector_subevents, dark_mode=dark_mode, ml=ml, on_close=on_close)
     return viewer
