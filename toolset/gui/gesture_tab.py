@@ -13,6 +13,7 @@ from toolset.processing.gesture_features import build_gesture_feature_vector
 from toolset.gui.cs_theme import _Theme
 
 _DATASETS_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), 'datasets')
+_MODELS_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), 'models')
 
 
 class GestureTabMixin:
@@ -108,8 +109,10 @@ class GestureTabMixin:
         train_frame = ttk.Frame(tab_frame)
         train_frame.grid(row=3, column=0, sticky=tk.W, pady=(0, 4))
         ttk.Button(train_frame, text='Train', command=self._on_gesture_train).grid(row=0, column=0)
+        ttk.Button(train_frame, text='Save model', command=self._on_gesture_save_model).grid(row=0, column=1, padx=(6, 0))
+        ttk.Button(train_frame, text='Load model', command=self._on_gesture_load_model).grid(row=0, column=2, padx=(6, 0))
         self._gesture_train_status = ttk.Label(train_frame, text='')
-        self._gesture_train_status.grid(row=0, column=1, padx=(12, 0), sticky=tk.W)
+        self._gesture_train_status.grid(row=0, column=3, padx=(12, 0), sticky=tk.W)
 
         # ---- row 4: confusion matrix plot ----
         self._gesture_fig = Figure(figsize=(5, 4), dpi=100)
@@ -561,3 +564,73 @@ class GestureTabMixin:
         ax.set_title('Confusion Matrix (cross-validation)')
         self._gesture_fig.tight_layout()
         self._gesture_canvas.draw()
+
+    # ------------------------------------------------------------------
+    # Model save / load
+    # ------------------------------------------------------------------
+
+    def _on_gesture_save_model(self):
+        import joblib
+
+        if self._gesture_pipeline is None:
+            self._gesture_train_status.config(text='No trained model to save')
+            return
+
+        os.makedirs(_MODELS_DIR, exist_ok=True)
+        path = filedialog.asksaveasfilename(
+            initialdir=_MODELS_DIR,
+            defaultextension='.joblib',
+            filetypes=[('Joblib model', '*.joblib')],
+            title='Save gesture model',
+        )
+        if not path:
+            return
+
+        model_data = {
+            'pipeline': self._gesture_pipeline,
+            'classes': self._gesture_classes,
+            'mode': self._gesture_mode.get(),
+            'window_duration': self._gesture_window_duration.get(),
+            'use_phase': self._gesture_use_phase.get(),
+            'use_amplitude_response': self._gesture_use_amplitude_response.get(),
+        }
+        joblib.dump(model_data, path)
+        self._gesture_train_status.config(text=f'Model saved to {os.path.basename(path)}')
+
+    def _on_gesture_load_model(self):
+        import joblib
+
+        if os.path.isdir(_MODELS_DIR):
+            initial = _MODELS_DIR
+        else:
+            initial = os.getcwd()
+
+        path = filedialog.askopenfilename(
+            initialdir=initial,
+            filetypes=[('Joblib model', '*.joblib')],
+            title='Load gesture model',
+        )
+        if not path:
+            return
+
+        try:
+            model_data = joblib.load(path)
+        except Exception as e:
+            self._gesture_train_status.config(text=f'Load error: {e}')
+            return
+
+        self._gesture_pipeline = model_data['pipeline']
+        self._gesture_classes = model_data['classes']
+        self._gesture_mode.set(model_data.get('mode', 'static'))
+        self._on_gesture_mode_changed()
+        if 'window_duration' in model_data:
+            self._gesture_window_duration.set(model_data['window_duration'])
+        if 'use_phase' in model_data:
+            self._gesture_use_phase.set(model_data['use_phase'])
+        if 'use_amplitude_response' in model_data:
+            self._gesture_use_amplitude_response.set(model_data['use_amplitude_response'])
+
+        classes_str = ', '.join(self._gesture_classes)
+        self._gesture_train_status.config(
+            text=f'Loaded model from {os.path.basename(path)} — classes: [{classes_str}]'
+        )
