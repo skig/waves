@@ -1,6 +1,7 @@
+import os
 import time
 import tkinter as tk
-from tkinter import ttk
+from tkinter import ttk, filedialog
 from typing import Dict, List, Optional, Tuple
 import numpy as np
 from toolset.processing.sensing_features import (
@@ -8,6 +9,8 @@ from toolset.processing.sensing_features import (
 )
 from toolset.processing.gesture_features import build_gesture_feature_vector
 from toolset.gui.cs_theme import _Theme
+
+_DATASETS_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), 'datasets')
 
 
 class GestureTabMixin:
@@ -68,9 +71,11 @@ class GestureTabMixin:
         self._gesture_record_btn.grid(row=0, column=2, padx=(12, 0))
 
         ttk.Button(ctrl, text='Clear all', command=self._on_gesture_clear).grid(row=0, column=3, padx=(6, 0))
+        ttk.Button(ctrl, text='Save dataset', command=self._on_gesture_save_dataset).grid(row=0, column=4, padx=(6, 0))
+        ttk.Button(ctrl, text='Load dataset', command=self._on_gesture_load_dataset).grid(row=0, column=5, padx=(6, 0))
 
         self._gesture_status = ttk.Label(ctrl, text='0 samples')
-        self._gesture_status.grid(row=0, column=4, padx=(16, 0), sticky=tk.W)
+        self._gesture_status.grid(row=0, column=6, padx=(16, 0), sticky=tk.W)
 
         # ---- row 2: sample summary ----
         self._gesture_summary = tk.Text(
@@ -237,6 +242,94 @@ class GestureTabMixin:
         self._gesture_record_btn.config(text='Record sample')
         self._gesture_status.config(text='0 samples')
         self._gesture_update_summary()
+
+    # ------------------------------------------------------------------
+    # Dataset save / load
+    # ------------------------------------------------------------------
+
+    def _on_gesture_save_dataset(self):
+        if not self._gesture_samples:
+            self._gesture_status.config(text='No samples to save')
+            return
+
+        os.makedirs(_DATASETS_DIR, exist_ok=True)
+        path = filedialog.asksaveasfilename(
+            initialdir=_DATASETS_DIR,
+            defaultextension='.npz',
+            filetypes=[('NumPy archive', '*.npz')],
+            title='Save gesture dataset',
+        )
+        if not path:
+            return
+
+        labels = np.array([s[0] for s in self._gesture_samples])
+        features = np.stack([s[1] for s in self._gesture_samples])
+        np.savez(
+            path,
+            labels=labels,
+            features=features,
+            mode=self._gesture_mode.get(),
+            window_duration=self._gesture_window_duration.get(),
+            use_phase=self._gesture_use_phase.get(),
+            use_amplitude_response=self._gesture_use_amplitude_response.get(),
+        )
+        self._gesture_status.config(text=f'Saved {len(self._gesture_samples)} samples to {os.path.basename(path)}')
+
+    def _on_gesture_load_dataset(self):
+        if os.path.isdir(_DATASETS_DIR):
+            initial = _DATASETS_DIR
+        else:
+            initial = os.getcwd()
+
+        path = filedialog.askopenfilename(
+            initialdir=initial,
+            filetypes=[('NumPy archive', '*.npz')],
+            title='Load gesture dataset',
+        )
+        if not path:
+            return
+
+        try:
+            data = np.load(path, allow_pickle=False)
+        except Exception as e:
+            self._gesture_status.config(text=f'Load error: {e}')
+            return
+
+        loaded_mode = str(data.get('mode', 'static'))
+        loaded_labels = data['labels']
+        loaded_features = data['features']
+
+        # Enforce mode consistency
+        if self._gesture_samples:
+            current_mode = self._gesture_mode.get()
+            if loaded_mode != current_mode:
+                self._gesture_status.config(
+                    text=f'Mode mismatch: dataset is {loaded_mode}, current is {current_mode}. Clear first or switch mode.'
+                )
+                return
+
+        # Apply loaded mode and settings
+        self._gesture_mode.set(loaded_mode)
+        self._on_gesture_mode_changed()
+        if 'window_duration' in data:
+            self._gesture_window_duration.set(float(data['window_duration']))
+        if 'use_phase' in data:
+            self._gesture_use_phase.set(bool(data['use_phase']))
+        if 'use_amplitude_response' in data:
+            self._gesture_use_amplitude_response.set(bool(data['use_amplitude_response']))
+
+        added = 0
+        for label, vec in zip(loaded_labels, loaded_features):
+            label_str = str(label)
+            self._gesture_samples.append((label_str, vec.astype(np.float32)))
+            if label_str not in self._gesture_labels_order:
+                self._gesture_labels_order.append(label_str)
+            added += 1
+
+        self._gesture_update_summary()
+        self._gesture_status.config(
+            text=f'Loaded {added} samples from {os.path.basename(path)} — total {len(self._gesture_samples)}'
+        )
 
     # ------------------------------------------------------------------
     # Summary
