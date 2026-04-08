@@ -44,6 +44,10 @@ class GestureTabMixin:
         self._gesture_pipeline = None
         self._gesture_classes: List[str] = []
 
+        # Live recognition state
+        self._gesture_recognizing = False
+        self._gesture_rolling_buffer: List[Tuple[float, np.ndarray]] = []  # (timestamp, vec)
+
         # Use-feature flags (same as sensing tab)
         self._gesture_use_phase = tk.BooleanVar(value=True)
         self._gesture_use_amplitude_response = tk.BooleanVar(value=True)
@@ -111,10 +115,25 @@ class GestureTabMixin:
         ttk.Button(train_frame, text='Train', command=self._on_gesture_train).grid(row=0, column=0)
         ttk.Button(train_frame, text='Save model', command=self._on_gesture_save_model).grid(row=0, column=1, padx=(6, 0))
         ttk.Button(train_frame, text='Load model', command=self._on_gesture_load_model).grid(row=0, column=2, padx=(6, 0))
+        self._gesture_recognize_btn = ttk.Button(train_frame, text='Start recognition', command=self._on_gesture_toggle_recognition)
+        self._gesture_recognize_btn.grid(row=0, column=3, padx=(6, 0))
         self._gesture_train_status = ttk.Label(train_frame, text='')
-        self._gesture_train_status.grid(row=0, column=3, padx=(12, 0), sticky=tk.W)
+        self._gesture_train_status.grid(row=0, column=4, padx=(12, 0), sticky=tk.W)
 
-        # ---- row 4: confusion matrix plot ----
+        # ---- row 4: live prediction display ----
+        pred_frame = ttk.Frame(tab_frame)
+        pred_frame.grid(row=4, column=0, sticky=(tk.W, tk.E), pady=(0, 8))
+        pred_frame.columnconfigure(0, weight=1)
+
+        self._gesture_pred_label = tk.Label(
+            pred_frame, text='', font=('TkDefaultFont', 48, 'bold'),
+            bg=_Theme.AltBackground, fg=_Theme.Foreground,
+            anchor=tk.CENTER, height=2,
+        )
+        self._gesture_pred_label.grid(row=0, column=0, sticky=(tk.W, tk.E))
+        self._gesture_pred_label.grid_remove()  # hidden until recognition starts
+
+        # ---- row 5: confusion matrix plot ----
         self._gesture_fig = Figure(figsize=(5, 4), dpi=100)
         self._gesture_ax = self._gesture_fig.add_subplot(111)
         self._gesture_ax.set_visible(False)
@@ -122,9 +141,9 @@ class GestureTabMixin:
 
         self._gesture_canvas = FigureCanvasTkAgg(self._gesture_fig, master=tab_frame)
         self._gesture_canvas.get_tk_widget().configure(bg=_Theme.PlotBackground)
-        self._gesture_canvas.get_tk_widget().grid(row=4, column=0, sticky=(tk.W, tk.E, tk.N, tk.S))
+        self._gesture_canvas.get_tk_widget().grid(row=5, column=0, sticky=(tk.W, tk.E, tk.N, tk.S))
 
-        tab_frame.rowconfigure(4, weight=1)
+        tab_frame.rowconfigure(5, weight=1)
         tab_frame.columnconfigure(0, weight=1)
 
         self._on_gesture_mode_changed()
@@ -140,6 +159,8 @@ class GestureTabMixin:
                 self._gesture_capture_to_buffer()
             elif mode == 'static':
                 self._gesture_capture_static_batch()
+        elif self._gesture_recognizing:
+            self._gesture_predict_current()
 
     # ------------------------------------------------------------------
     # Mode
@@ -343,6 +364,7 @@ class GestureTabMixin:
         self._gesture_static_collected = 0
         self._gesture_pipeline = None
         self._gesture_classes.clear()
+        self._gesture_stop_recognition()
         self._gesture_record_btn.config(text='Record sample')
         self._gesture_status.config(text='0 samples')
         self._gesture_train_status.config(text='')
@@ -634,3 +656,97 @@ class GestureTabMixin:
         self._gesture_train_status.config(
             text=f'Loaded model from {os.path.basename(path)} — classes: [{classes_str}]'
         )
+
+    # ------------------------------------------------------------------
+    # Live recognition
+    # ------------------------------------------------------------------
+
+    def _on_gesture_toggle_recognition(self):
+        if self._gesture_recognizing:
+            self._gesture_stop_recognition()
+        else:
+            self._gesture_start_recognition()
+
+    def _gesture_start_recognition(self):
+        if self._gesture_pipeline is None:
+            self._gesture_train_status.config(text='Train or load a model first')
+            return
+        if self._gesture_recording:
+            self._gesture_status.config(text='Stop recording before starting recognition')
+            return
+
+        self._gesture_recognizing = True
+        self._gesture_rolling_buffer.clear()
+        self._gesture_recognize_btn.config(text='Stop recognition')
+        self._gesture_pred_label.grid()
+        self._gesture_pred_label.config(text='Waiting...', bg=_Theme.AltBackground, fg=_Theme.Foreground)
+
+    def _gesture_stop_recognition(self):
+        self._gesture_recognizing = False
+        self._gesture_rolling_buffer.clear()
+        self._gesture_recognize_btn.config(text='Start recognition')
+        self._gesture_pred_label.grid_remove()
+
+    def _gesture_predict_current(self):
+        """Run one prediction cycle using the current subevent data."""
+        phase_data = getattr(self, '_current_phase_slope_data', None)
+        amplitude_response = getattr(self, '_current_amplitude_response_data', None)
+        initiator = getattr(self, '_current_initiator', None)
+        reflector = getattr(self, '_current_reflector', None)
+
+        drop_reason = sensing_drop_reason(initiator, reflector, phase_data, amplitude_response)
+        if drop_reason:
+            return  # silently skip bad subevents
+
+        vec = build_feature_vector(
+            phase_data, amplitude_response,
+            use_phase=self._gesture_use_phase.get(),
+            use_amplitude_response=self._gesture_use_amplitude_response.get(),
+        )
+        if vec is None:
+            return
+
+        mode = self._gesture_mode.get()
+        if mode == 'static':
+            self._gesture_predict_and_display(vec)
+        else:
+            # Dynamic: maintain rolling buffer trimmed to window duration
+            now = time.monotonic()
+            self._gesture_rolling_buffer.append((now, vec))
+            cutoff = now - self._gesture_window_duration.get()
+            self._gesture_rolling_buffer = [
+                (t, v) for t, v in self._gesture_rolling_buffer if t >= cutoff
+            ]
+            n = len(self._gesture_rolling_buffer)
+            if n < 2:
+                self._gesture_pred_label.config(
+                    text=f'Buffering... ({n} subevents)',
+                    bg=_Theme.AltBackground, fg=_Theme.Foreground,
+                )
+                return
+            window_vecs = [v for _, v in self._gesture_rolling_buffer]
+            gesture_vec = build_gesture_feature_vector(window_vecs)
+            self._gesture_predict_and_display(gesture_vec)
+
+    def _gesture_predict_and_display(self, feature_vec: np.ndarray):
+        """Run predict_proba and update the large prediction label."""
+        X = feature_vec.reshape(1, -1)
+        proba = self._gesture_pipeline.predict_proba(X)[0]
+        best_idx = int(np.argmax(proba))
+        confidence = proba[best_idx]
+        label = self._gesture_classes[best_idx]
+
+        pct = confidence * 100
+        text = f'{label}  ({pct:.0f}%)'
+
+        if confidence >= 0.8:
+            bg = '#1b5e20'  # dark green
+            fg = '#a5d6a7'  # light green
+        elif confidence >= 0.5:
+            bg = '#f57f17'  # dark yellow/amber
+            fg = '#fff9c4'  # light yellow
+        else:
+            bg = '#b71c1c'  # dark red
+            fg = '#ef9a9a'  # light red
+
+        self._gesture_pred_label.config(text=text, bg=bg, fg=fg)
