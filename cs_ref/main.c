@@ -7,6 +7,7 @@
 #include <zephyr/bluetooth/uuid.h>
 #include <zephyr/bluetooth/cs.h>
 #include <zephyr/settings/settings.h>
+#include <zephyr/console/console.h>
 #include <dk_buttons_and_leds.h>
 
 #include <zephyr/logging/log.h>
@@ -19,6 +20,24 @@ static K_SEM_DEFINE(sem_connected, 0, 1);
 static K_SEM_DEFINE(sem_config, 0, 1);
 
 static struct bt_conn *connection;
+
+/* Separate thread to handle user input:
+- 'r' to reboot
+*/
+static void console_thread_func(void *p1, void *p2, void *p3)
+{
+	console_init();
+
+	while (true) {
+		uint8_t c = console_getchar();
+
+		if (c == 'r') {
+			sys_reboot(SYS_REBOOT_COLD);
+		}
+	}
+}
+
+K_THREAD_DEFINE(console_thread, 1024, console_thread_func, NULL, NULL, NULL, K_LOWEST_APPLICATION_THREAD_PRIO, 0, 0);
 
 static const struct bt_data ad[] = {
 	BT_DATA_BYTES(BT_DATA_FLAGS, (BT_LE_AD_GENERAL | BT_LE_AD_NO_BREDR)),

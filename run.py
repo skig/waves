@@ -100,8 +100,9 @@ def main():
         initiator_source.open()
         reflector_source.open()
 
-        print("Sending reboot command to initiator...")
+        print("Sending reboot command to initiator and reflector...")
         initiator_source.send(b'r')
+        reflector_source.send(b'r')
         time.sleep(1)
 
         initiator_source.flush_input()
