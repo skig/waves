@@ -15,6 +15,10 @@ from toolset.gui.cs_theme import _Theme
 _DATASETS_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), 'datasets')
 _MODELS_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), 'models')
 
+# Fraction of samples treated as outliers per label by LocalOutlierFactor.
+# Raise to remove more aggressively (e.g. 0.1 = ~10%), lower to be more conservative.
+_LOF_CONTAMINATION = 0.05
+
 
 class GestureTabMixin:
     """Gesture tab: data collection, training, and real-time recognition."""
@@ -102,11 +106,12 @@ class GestureTabMixin:
         self._gesture_record_btn.grid(row=0, column=2, padx=(12, 0))
 
         ttk.Button(ctrl, text='Clear all', command=self._on_gesture_clear).grid(row=0, column=3, padx=(6, 0))
-        ttk.Button(ctrl, text='Save dataset', command=self._on_gesture_save_dataset).grid(row=0, column=4, padx=(6, 0))
-        ttk.Button(ctrl, text='Load dataset', command=self._on_gesture_load_dataset).grid(row=0, column=5, padx=(6, 0))
+        ttk.Button(ctrl, text='Remove outliers', command=self._on_gesture_remove_outliers).grid(row=0, column=4, padx=(6, 0))
+        ttk.Button(ctrl, text='Save dataset', command=self._on_gesture_save_dataset).grid(row=0, column=5, padx=(6, 0))
+        ttk.Button(ctrl, text='Load dataset', command=self._on_gesture_load_dataset).grid(row=0, column=6, padx=(6, 0))
 
         self._gesture_status = ttk.Label(ctrl, text='0 samples')
-        self._gesture_status.grid(row=0, column=6, padx=(16, 0), sticky=tk.W)
+        self._gesture_status.grid(row=0, column=7, padx=(16, 0), sticky=tk.W)
 
         # ---- row 2: sample summary ----
         self._gesture_summary = tk.Text(
@@ -377,6 +382,51 @@ class GestureTabMixin:
 
         if elapsed >= duration:
             self._gesture_stop_recording()
+
+    # ------------------------------------------------------------------
+    # Outlier removal
+    # ------------------------------------------------------------------
+
+    def _on_gesture_remove_outliers(self):
+        from sklearn.neighbors import LocalOutlierFactor
+
+        if not self._gesture_samples:
+            self._gesture_status.config(text='No samples to filter')
+            return
+
+        # Group indices by label
+        label_indices: Dict[str, List[int]] = {}
+        for i, (lbl, _) in enumerate(self._gesture_samples):
+            label_indices.setdefault(lbl, []).append(i)
+
+        _MIN_SAMPLES = 5  # LOF needs enough neighbours to be meaningful
+        keep = [True] * len(self._gesture_samples)
+
+        for lbl, indices in label_indices.items():
+            if len(indices) < _MIN_SAMPLES:
+                continue
+
+            X = np.stack([self._gesture_samples[i][1] for i in indices])
+            lof = LocalOutlierFactor(n_neighbors=min(20, len(indices) - 1),
+                                     contamination=_LOF_CONTAMINATION)
+            preds = lof.fit_predict(X)  # -1 = outlier, 1 = inlier
+            for idx, pred in zip(indices, preds):
+                if pred == -1:
+                    keep[idx] = False
+
+        self._gesture_samples = [s for s, k in zip(self._gesture_samples, keep) if k]
+        # Rebuild label order, dropping labels that lost all their samples
+        remaining_labels = {s[0] for s in self._gesture_samples}
+        self._gesture_labels_order = [l for l in self._gesture_labels_order if l in remaining_labels]
+
+        total_before = len(keep)
+        total_removed = keep.count(False)
+        pct = total_removed / total_before * 100 if total_before else 0
+        self._gesture_update_summary()
+        self._gesture_notify_samples_changed()
+        self._gesture_status.config(
+            text=f'Removed {total_removed} outliers ({pct:.1f}%) — {len(self._gesture_samples)} samples remain'
+        )
 
     # ------------------------------------------------------------------
     # Clear
