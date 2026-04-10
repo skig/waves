@@ -52,6 +52,13 @@ class GestureTabMixin:
         self._gesture_use_phase = tk.BooleanVar(value=True)
         self._gesture_use_amplitude_response = tk.BooleanVar(value=True)
 
+        # Plot view toggle: 'pca' or 'confusion'
+        self._gesture_plot_view: str = 'pca'
+        self._gesture_pca_dirty: bool = False
+        self._gesture_pca_transform: Optional[Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]] = None
+        self._gesture_live_artist = None
+        self._gesture_last_cm: Optional[Tuple[np.ndarray, List[str]]] = None  # cached (cm, labels)
+
         # ---- row 0: mode selector ----
         mode_frame = ttk.Frame(tab_frame)
         mode_frame.grid(row=0, column=0, sticky=tk.W, pady=(0, 4))
@@ -120,9 +127,23 @@ class GestureTabMixin:
         self._gesture_train_status = ttk.Label(train_frame, text='')
         self._gesture_train_status.grid(row=0, column=4, padx=(12, 0), sticky=tk.W)
 
-        # ---- row 4: live prediction display ----
+        # ---- row 4: plot view toggle ----
+        plot_toggle_frame = ttk.Frame(tab_frame)
+        plot_toggle_frame.grid(row=4, column=0, sticky=tk.W, pady=(0, 4))
+        self._gesture_pca_btn = ttk.Button(
+            plot_toggle_frame, text='PCA', command=lambda: self._gesture_switch_plot_view('pca'),
+        )
+        self._gesture_pca_btn.grid(row=0, column=0)
+        self._gesture_cm_btn = ttk.Button(
+            plot_toggle_frame, text='Confusion Matrix',
+            command=lambda: self._gesture_switch_plot_view('confusion'),
+            state=tk.DISABLED,
+        )
+        self._gesture_cm_btn.grid(row=0, column=1, padx=(6, 0))
+
+        # ---- row 5: live prediction display ----
         pred_frame = ttk.Frame(tab_frame)
-        pred_frame.grid(row=4, column=0, sticky=(tk.W, tk.E), pady=(0, 8))
+        pred_frame.grid(row=5, column=0, sticky=(tk.W, tk.E), pady=(0, 8))
         pred_frame.columnconfigure(0, weight=1)
 
         self._gesture_pred_label = tk.Label(
@@ -131,9 +152,8 @@ class GestureTabMixin:
             anchor=tk.CENTER, height=2,
         )
         self._gesture_pred_label.grid(row=0, column=0, sticky=(tk.W, tk.E))
-        self._gesture_pred_label.grid_remove()  # hidden until recognition starts
 
-        # ---- row 5: confusion matrix plot ----
+        # ---- row 6: plot area (PCA scatter / confusion matrix) ----
         self._gesture_fig = Figure(figsize=(5, 4), dpi=100)
         self._gesture_ax = self._gesture_fig.add_subplot(111)
         self._gesture_ax.set_visible(False)
@@ -141,9 +161,9 @@ class GestureTabMixin:
 
         self._gesture_canvas = FigureCanvasTkAgg(self._gesture_fig, master=tab_frame)
         self._gesture_canvas.get_tk_widget().configure(bg=_Theme.PlotBackground)
-        self._gesture_canvas.get_tk_widget().grid(row=5, column=0, sticky=(tk.W, tk.E, tk.N, tk.S))
+        self._gesture_canvas.get_tk_widget().grid(row=6, column=0, sticky=(tk.W, tk.E, tk.N, tk.S))
 
-        tab_frame.rowconfigure(5, weight=1)
+        tab_frame.rowconfigure(6, weight=1)
         tab_frame.columnconfigure(0, weight=1)
 
         self._on_gesture_mode_changed()
@@ -161,6 +181,12 @@ class GestureTabMixin:
                 self._gesture_capture_static_batch()
         elif self._gesture_recognizing:
             self._gesture_predict_current()
+
+        # Deferred PCA recompute (e.g. after batch recording finishes)
+        if self._gesture_pca_dirty and not self._gesture_recording:
+            self._gesture_pca_dirty = False
+            if self._gesture_plot_view == 'pca':
+                self._gesture_draw_pca()
 
     # ------------------------------------------------------------------
     # Mode
@@ -229,6 +255,7 @@ class GestureTabMixin:
         if label not in self._gesture_labels_order:
             self._gesture_labels_order.append(label)
         self._gesture_update_summary()
+        self._gesture_notify_samples_changed()
         self._gesture_status.config(text=f'{len(self._gesture_samples)} samples — recorded static [{label}]')
 
     def _gesture_start_static_batch(self, label: str, target: int):
@@ -278,6 +305,7 @@ class GestureTabMixin:
             self._gesture_recording = False
             self._gesture_record_btn.config(text='Record sample')
             self._gesture_update_summary()
+            self._gesture_pca_dirty = True
             self._gesture_status.config(
                 text=f'{len(self._gesture_samples)} samples — collected {self._gesture_static_collected} static [{label}]'
             )
@@ -312,6 +340,7 @@ class GestureTabMixin:
         if label not in self._gesture_labels_order:
             self._gesture_labels_order.append(label)
         self._gesture_update_summary()
+        self._gesture_notify_samples_changed()
         self._gesture_status.config(
             text=f'{len(self._gesture_samples)} samples — recorded dynamic [{label}] ({len(buf)} subevents)'
         )
@@ -364,10 +393,16 @@ class GestureTabMixin:
         self._gesture_static_collected = 0
         self._gesture_pipeline = None
         self._gesture_classes.clear()
+        self._gesture_pca_transform = None
+        self._gesture_live_artist = None
+        self._gesture_last_cm = None
+        self._gesture_pca_dirty = False
+        self._gesture_plot_view = 'pca'
         self._gesture_stop_recognition()
         self._gesture_record_btn.config(text='Record sample')
         self._gesture_status.config(text='0 samples')
         self._gesture_train_status.config(text='')
+        self._gesture_cm_btn.config(state=tk.DISABLED)
         self._gesture_ax.cla()
         self._gesture_ax.set_visible(False)
         self._apply_gesture_plot_theme()
@@ -458,6 +493,7 @@ class GestureTabMixin:
             added += 1
 
         self._gesture_update_summary()
+        self._gesture_notify_samples_changed()
         self._gesture_status.config(
             text=f'Loaded {added} samples from {os.path.basename(path)} — total {len(self._gesture_samples)}'
         )
@@ -502,6 +538,113 @@ class GestureTabMixin:
         self._gesture_ax.title.set_color(_Theme.PlotForeground)
         for spine in self._gesture_ax.spines.values():
             spine.set_edgecolor(_Theme.Border)
+
+    # ------------------------------------------------------------------
+    # Plot view toggle (PCA / Confusion Matrix)
+    # ------------------------------------------------------------------
+
+    _LABEL_COLORS = [
+        '#4e79a7', '#f28e2b', '#e15759', '#76b7b2',
+        '#59a14f', '#edc948', '#b07aa1', '#ff9da7',
+        '#9c755f', '#bab0ac',
+    ]
+
+    def _gesture_switch_plot_view(self, view: str):
+        """Toggle between 'pca' and 'confusion' plot views."""
+        self._gesture_plot_view = view
+        if view == 'pca':
+            self._gesture_draw_pca()
+        elif view == 'confusion':
+            self._gesture_redraw_confusion_matrix()
+
+    def _gesture_notify_samples_changed(self):
+        """Called whenever samples are added or loaded. Auto-recomputes PCA if active."""
+        if self._gesture_plot_view == 'pca' and not self._gesture_recording:
+            self._gesture_draw_pca()
+        else:
+            self._gesture_pca_dirty = True
+
+    def _gesture_draw_pca(self):
+        """Compute PCA on current samples and render scatter plot."""
+        ax = self._gesture_ax
+        ax.cla()
+
+        if len(self._gesture_samples) < 2:
+            ax.set_visible(False)
+            self._apply_gesture_plot_theme()
+            self._gesture_pca_transform = None
+            self._gesture_live_artist = None
+            self._gesture_canvas.draw()
+            return
+
+        ax.set_visible(True)
+        self._apply_gesture_plot_theme()
+        ax.grid(True, color=_Theme.PlotGridColor, alpha=0.4)
+
+        labels = [s[0] for s in self._gesture_samples]
+        X = np.stack([s[1] for s in self._gesture_samples])
+
+        mean = X.mean(axis=0)
+        std = X.std(axis=0)
+        std[std == 0] = 1.0
+        X_norm = (X - mean) / std
+
+        center = X_norm.mean(axis=0)
+        X_centered = X_norm - center
+        _, _, Vt = np.linalg.svd(X_centered, full_matrices=False)
+        W2 = Vt[:2]  # (2, n_features)
+        embedding = X_centered @ W2.T  # (n_samples, 2)
+
+        unique_labels = list(dict.fromkeys(labels))
+        for i, lbl in enumerate(unique_labels):
+            mask = np.array([l == lbl for l in labels])
+            pts = embedding[mask]
+            color = self._LABEL_COLORS[i % len(self._LABEL_COLORS)]
+            ax.scatter(pts[:, 0], pts[:, 1], label=lbl, color=color, alpha=0.7, s=30)
+
+        legend = ax.legend()
+        legend.get_frame().set_facecolor(_Theme.PlotBackground)
+        legend.get_frame().set_edgecolor(_Theme.Border)
+        for text in legend.get_texts():
+            text.set_color(_Theme.PlotForeground)
+
+        n_labels = len(unique_labels)
+        ax.set_title(f'PCA — {len(self._gesture_samples)} samples, {n_labels} labels')
+        ax.set_xlabel('Component 1')
+        ax.set_ylabel('Component 2')
+
+        # Live-dot artist (empty until recognition feeds it)
+        self._gesture_live_artist = ax.scatter(
+            [], [], marker='*', s=250, color='white',
+            edgecolors='black', linewidths=0.8, zorder=6, label='_nolegend_',
+        )
+
+        # Store transform for live projection
+        self._gesture_pca_transform = (mean, std, center, W2)
+
+        self._gesture_fig.tight_layout()
+        self._gesture_canvas.draw()
+
+    def _gesture_update_live_dot(self, feature_vec: np.ndarray):
+        """Project a feature vector into PCA space and update the live-dot marker."""
+        if self._gesture_pca_transform is None or self._gesture_live_artist is None:
+            return
+        if self._gesture_plot_view != 'pca':
+            return
+
+        mean, std, center, W2 = self._gesture_pca_transform
+        vec_norm = (feature_vec - mean) / std
+        pt = (vec_norm - center) @ W2.T  # shape (2,)
+
+        self._gesture_live_artist.set_offsets([[pt[0], pt[1]]])
+        self._gesture_canvas.draw_idle()
+
+    def _gesture_redraw_confusion_matrix(self):
+        """Redraw the cached confusion matrix (if any)."""
+        if self._gesture_last_cm is None:
+            return
+        cm, labels = self._gesture_last_cm
+        self._gesture_plot_confusion_matrix(cm, labels)
 
     # ------------------------------------------------------------------
     # Training
@@ -553,6 +696,9 @@ class GestureTabMixin:
 
         # Show confusion matrix
         cm = confusion_matrix(y, y_pred, labels=unique_labels)
+        self._gesture_last_cm = (cm, unique_labels)
+        self._gesture_cm_btn.config(state=tk.NORMAL)
+        self._gesture_plot_view = 'confusion'
         self._gesture_plot_confusion_matrix(cm, unique_labels)
 
         acc_mean = scores.mean() * 100
@@ -678,14 +824,13 @@ class GestureTabMixin:
         self._gesture_recognizing = True
         self._gesture_rolling_buffer.clear()
         self._gesture_recognize_btn.config(text='Stop recognition')
-        self._gesture_pred_label.grid()
         self._gesture_pred_label.config(text='Waiting...', bg=_Theme.AltBackground, fg=_Theme.Foreground)
 
     def _gesture_stop_recognition(self):
         self._gesture_recognizing = False
         self._gesture_rolling_buffer.clear()
         self._gesture_recognize_btn.config(text='Start recognition')
-        self._gesture_pred_label.grid_remove()
+        self._gesture_pred_label.config(text='', bg=_Theme.AltBackground, fg=_Theme.Foreground)
 
     def _gesture_predict_current(self):
         """Run one prediction cycle using the current subevent data."""
@@ -750,3 +895,6 @@ class GestureTabMixin:
             fg = '#ef9a9a'  # light red
 
         self._gesture_pred_label.config(text=text, bg=bg, fg=fg)
+
+        # Update live dot on PCA scatter
+        self._gesture_update_live_dot(feature_vec)
