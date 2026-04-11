@@ -62,6 +62,8 @@ class GestureTabMixin:
         self._gesture_pca_transform: Optional[Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]] = None
         self._gesture_live_artist = None
         self._gesture_last_cm: Optional[Tuple[np.ndarray, List[str]]] = None  # cached (cm, labels)
+        self._gesture_proba_bars = None
+        self._gesture_pre_recognition_view: str = 'pca'
 
         # ---- row 0: mode selector ----
         mode_frame = ttk.Frame(tab_frame)
@@ -446,6 +448,7 @@ class GestureTabMixin:
         self._gesture_pca_transform = None
         self._gesture_live_artist = None
         self._gesture_last_cm = None
+        self._gesture_proba_bars = None
         self._gesture_pca_dirty = False
         self._gesture_plot_view = 'pca'
         self._gesture_stop_recognition()
@@ -689,6 +692,39 @@ class GestureTabMixin:
         self._gesture_live_artist.set_offsets([[pt[0], pt[1]]])
         self._gesture_canvas.draw_idle()
 
+    def _gesture_init_proba_chart(self):
+        """Draw a vertical bar chart for live probability display."""
+        ax = self._gesture_ax
+        ax.cla()
+        ax.set_visible(True)
+        self._apply_gesture_plot_theme()
+
+        classes = self._gesture_classes
+        n = len(classes)
+        x_pos = np.arange(n)
+        colors = [self._LABEL_COLORS[i % len(self._LABEL_COLORS)] for i in range(n)]
+
+        bars = ax.bar(x_pos, np.zeros(n), align='center', color=colors, alpha=0.85)
+        ax.set_xticks(x_pos)
+        ax.set_xticklabels(classes, rotation=30, ha='right')
+        ax.set_ylim(0, 1)
+        ax.set_ylabel('Probability')
+        ax.set_title('Live recognition probabilities')
+        ax.axhline(y=0.5, color=_Theme.Border, linestyle='--', alpha=0.5, linewidth=1)
+        ax.grid(True, axis='y', color=_Theme.PlotGridColor, alpha=0.4)
+
+        self._gesture_proba_bars = bars
+        self._gesture_fig.tight_layout()
+        self._gesture_canvas.draw()
+
+    def _gesture_update_proba_bars(self, proba: np.ndarray):
+        """Update bar heights with the latest class probabilities (fast path)."""
+        if self._gesture_proba_bars is None or self._gesture_plot_view != 'proba':
+            return
+        for bar, p in zip(self._gesture_proba_bars, proba):
+            bar.set_height(p)
+        self._gesture_canvas.draw_idle()
+
     def _gesture_redraw_confusion_matrix(self):
         """Redraw the cached confusion matrix (if any)."""
         if self._gesture_last_cm is None:
@@ -875,12 +911,22 @@ class GestureTabMixin:
         self._gesture_rolling_buffer.clear()
         self._gesture_recognize_btn.config(text='Stop recognition')
         self._gesture_pred_label.config(text='Waiting...', bg=_Theme.AltBackground, fg=_Theme.Foreground)
+        self._gesture_pre_recognition_view = self._gesture_plot_view
+        self._gesture_plot_view = 'proba'
+        self._gesture_init_proba_chart()
 
     def _gesture_stop_recognition(self):
         self._gesture_recognizing = False
         self._gesture_rolling_buffer.clear()
         self._gesture_recognize_btn.config(text='Start recognition')
         self._gesture_pred_label.config(text='', bg=_Theme.AltBackground, fg=_Theme.Foreground)
+        self._gesture_proba_bars = None
+        view = getattr(self, '_gesture_pre_recognition_view', 'pca')
+        self._gesture_plot_view = view
+        if view == 'pca':
+            self._gesture_draw_pca()
+        elif view == 'confusion':
+            self._gesture_redraw_confusion_matrix()
 
     def _gesture_predict_current(self):
         """Run one prediction cycle using the current subevent data."""
@@ -945,6 +991,9 @@ class GestureTabMixin:
             fg = '#ef9a9a'  # light red
 
         self._gesture_pred_label.config(text=text, bg=bg, fg=fg)
+
+        # Update probability bar chart if active
+        self._gesture_update_proba_bars(proba)
 
         # Update live dot on PCA scatter
         self._gesture_update_live_dot(feature_vec)
