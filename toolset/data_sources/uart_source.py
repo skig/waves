@@ -1,9 +1,10 @@
+import re
 import time
 from threading import Event
 from typing import Iterator, Optional
 import serial
 from toolset.data_sources.base import DataSource, _STATUS_MARKERS
-from toolset.data_sources.events import CSEvent, StatusEvent, CapabilitiesEvent, SubeventResultEvent
+from toolset.data_sources.events import CSEvent, StatusEvent, CapabilitiesEvent, SubeventResultEvent, ProcedureParamsEvent
 from toolset.cs_utils.cs_subevent_parser import parse_cs_subevent_result
 
 
@@ -21,6 +22,8 @@ class UartDataSource(DataSource):
         self._collecting_capabilities = False
         self._capabilities_lines: list[str] = []
         self._stop_event: Optional[Event] = None
+        self._connection_interval_ms: Optional[int] = None
+        self._procedure_interval: Optional[int] = None
 
     def set_stop_event(self, stop_event: Event):
         """Provide a threading.Event that signals the read loop to exit."""
@@ -74,6 +77,21 @@ class UartDataSource(DataSource):
         if _STATUS_MARKERS['cs_capabilities'] in line:
             self._collecting_capabilities = True
             self._capabilities_lines = []
+
+        if 'Connection interval:' in line:
+            m = re.search(r'Connection interval:\s*(\d+)', line)
+            if m:
+                self._connection_interval_ms = int(m.group(1))
+
+        if 'procedure interval:' in line:
+            m = re.search(r'procedure interval:\s*(\d+)', line)
+            if m:
+                self._procedure_interval = int(m.group(1))
+                if self._connection_interval_ms is not None:
+                    yield ProcedureParamsEvent(
+                        connection_interval_ms=self._connection_interval_ms,
+                        procedure_interval=self._procedure_interval,
+                    )
 
     def read(self) -> Iterator[CSEvent]:
         """Yield events from UART as they arrive."""

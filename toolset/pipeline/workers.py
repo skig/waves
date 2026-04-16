@@ -2,7 +2,7 @@ from queue import Queue
 from threading import Event
 from typing import Optional, Callable
 from toolset.data_sources.base import DataSource
-from toolset.data_sources.events import CSEvent, StatusEvent, CapabilitiesEvent, SubeventResultEvent
+from toolset.data_sources.events import CSEvent, StatusEvent, CapabilitiesEvent, SubeventResultEvent, ProcedureParamsEvent
 
 
 def producer_worker(
@@ -11,6 +11,7 @@ def producer_worker(
     stop_event: Event,
     status_callback: Optional[Callable[[str], None]] = None,
     capabilities_callback: Optional[Callable[[str], None]] = None,
+    procedure_params_callback: Optional[Callable[[int, int], None]] = None,
 ):
     """
     Read events from source, dispatch status/capabilities immediately,
@@ -33,6 +34,9 @@ def producer_worker(
             elif isinstance(event, CapabilitiesEvent):
                 if capabilities_callback:
                     capabilities_callback(event.text)
+            elif isinstance(event, ProcedureParamsEvent):
+                if procedure_params_callback:
+                    procedure_params_callback(event.connection_interval_ms, event.procedure_interval)
             elif isinstance(event, SubeventResultEvent):
                 output_queue.put(event.subevent)
     finally:

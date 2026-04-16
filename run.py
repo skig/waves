@@ -140,6 +140,7 @@ def main():
         kwargs={
             'status_callback': viewer.update_connection_status,
             'capabilities_callback': viewer.update_capabilities_text,
+            'procedure_params_callback': viewer.update_procedure_params,
         },
         name="InitiatorProducer",
         daemon=True,
