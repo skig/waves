@@ -1,3 +1,4 @@
 &uart20 {
 	current-speed = <1000000>;
+	hw-flow-control;
 };

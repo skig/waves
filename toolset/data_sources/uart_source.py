@@ -40,6 +40,7 @@ class UartDataSource(DataSource):
                 bytesize=serial.EIGHTBITS,
                 parity=serial.PARITY_NONE,
                 stopbits=serial.STOPBITS_ONE,
+                rtscts=True,
                 timeout=1.0
             )
 
