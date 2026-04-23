@@ -46,7 +46,7 @@ def sensing_drop_reason(
     return None
 
 
-def ext_slot_emission(subevent: SubeventResults, threshold: float = 20.0) -> Optional[str]:
+def ext_slot_emission(subevent: SubeventResults, threshold: float = 30.0) -> Optional[str]:
     """Return description if any TONE_EXTENSION_NOT_EXPECTED slot has magnitude above threshold.
 
     A large magnitude in an extension slot indicates external RF emission on that channel.
