@@ -16,6 +16,7 @@ _MODELS_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.pa
 # Fraction of samples treated as outliers per label by LocalOutlierFactor.
 # Raise to remove more aggressively (e.g. 0.1 = ~10%), lower to be more conservative.
 _LOF_CONTAMINATION = 0.05
+_BTN_RECORD = 'Record samples'
 
 
 class GestureTabMixin:
@@ -81,7 +82,7 @@ class GestureTabMixin:
         label_entry = ttk.Entry(ctrl, textvariable=self._gesture_label_var, width=20)
         label_entry.grid(row=0, column=1, sticky=tk.W, padx=(6, 0))
 
-        self._gesture_record_btn = ttk.Button(ctrl, text='Record sample', command=self._on_gesture_record)
+        self._gesture_record_btn = ttk.Button(ctrl, text=_BTN_RECORD, command=self._on_gesture_record)
         self._gesture_record_btn.grid(row=0, column=2, padx=(12, 0))
 
         ttk.Button(ctrl, text='Clear all', command=self._on_gesture_clear).grid(row=0, column=3, padx=(6, 0))
@@ -260,7 +261,7 @@ class GestureTabMixin:
 
         if self._gesture_static_collected >= target:
             self._gesture_recording = False
-            self._gesture_record_btn.config(text='Record sample')
+            self._gesture_record_btn.config(text=_BTN_RECORD)
             self._gesture_update_summary()
             self._gesture_pca_dirty = True
             self._gesture_status.config(
@@ -270,7 +271,7 @@ class GestureTabMixin:
     def _gesture_stop_recording(self):
         """Stop batch recording."""
         self._gesture_recording = False
-        self._gesture_record_btn.config(text='Record sample')
+        self._gesture_record_btn.config(text=_BTN_RECORD)
         self._gesture_update_summary()
         self._gesture_pca_dirty = True
         self._gesture_status.config(
@@ -342,7 +343,7 @@ class GestureTabMixin:
         self._gesture_pca_dirty = False
         self._gesture_plot_view = 'pca'
         self._gesture_stop_recognition()
-        self._gesture_record_btn.config(text='Record sample')
+        self._gesture_record_btn.config(text=_BTN_RECORD)
         self._gesture_status.config(text='0 samples')
         self._gesture_train_status.config(text='')
         self._gesture_cm_btn.config(state=tk.DISABLED)
