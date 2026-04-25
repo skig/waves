@@ -38,6 +38,8 @@ class GestureTabMixin:
         self._gesture_dropped: int = 0
 
         self._gesture_static_count = tk.IntVar(value=1)
+        self._gesture_rename_old_var = tk.StringVar(value='')
+        self._gesture_rename_new_var = tk.StringVar(value='')
 
         # Trained model (sklearn Pipeline or None)
         self._gesture_pipeline = None
@@ -79,7 +81,11 @@ class GestureTabMixin:
         ctrl.grid(row=1, column=0, sticky=(tk.W, tk.E), pady=(0, 8))
 
         ttk.Label(ctrl, text='Label:').grid(row=0, column=0, sticky=tk.W)
-        label_entry = ttk.Entry(ctrl, textvariable=self._gesture_label_var, width=20)
+        label_entry = tk.Entry(
+            ctrl, textvariable=self._gesture_label_var, width=20,
+            bg=_Theme.Background, fg=_Theme.Foreground,
+            insertbackground=_Theme.Foreground,
+        )
         label_entry.grid(row=0, column=1, sticky=tk.W, padx=(6, 0))
 
         self._gesture_record_btn = ttk.Button(ctrl, text=_BTN_RECORD, command=self._on_gesture_record)
@@ -92,6 +98,23 @@ class GestureTabMixin:
 
         self._gesture_status = ttk.Label(ctrl, text='0 samples')
         self._gesture_status.grid(row=0, column=7, padx=(16, 0), sticky=tk.W)
+
+        # ---- rename row ----
+        ttk.Label(ctrl, text='Rename:').grid(row=1, column=0, sticky=tk.W, pady=(4, 0))
+        tk.Entry(
+            ctrl, textvariable=self._gesture_rename_old_var, width=14,
+            bg=_Theme.Background, fg=_Theme.Foreground,
+            insertbackground=_Theme.Foreground,
+        ).grid(row=1, column=1, sticky=tk.W, padx=(6, 0), pady=(4, 0))
+        ttk.Label(ctrl, text='→').grid(row=1, column=2, padx=(6, 0), pady=(4, 0))
+        tk.Entry(
+            ctrl, textvariable=self._gesture_rename_new_var, width=14,
+            bg=_Theme.Background, fg=_Theme.Foreground,
+            insertbackground=_Theme.Foreground,
+        ).grid(row=1, column=3, sticky=tk.W, padx=(6, 0), pady=(4, 0))
+        ttk.Button(ctrl, text='Rename label', command=self._on_gesture_rename_label).grid(
+            row=1, column=4, padx=(6, 0), pady=(4, 0),
+        )
 
         # ---- row 2: sample summary ----
         self._gesture_summary = tk.Text(
@@ -424,6 +447,43 @@ class GestureTabMixin:
         self._gesture_status.config(
             text=f'Loaded {added} samples from {os.path.basename(path)} — total {len(self._gesture_samples)}'
         )
+
+    # ------------------------------------------------------------------
+    # Rename label
+    # ------------------------------------------------------------------
+
+    def _on_gesture_rename_label(self):
+        old = self._gesture_rename_old_var.get().strip()
+        new = self._gesture_rename_new_var.get().strip()
+        if not old or not new:
+            self._gesture_status.config(text='Enter both old and new label names')
+            return
+        if old == new:
+            self._gesture_status.config(text='Old and new names are the same')
+            return
+        if old not in self._gesture_labels_order:
+            self._gesture_status.config(text=f'Label not found: {old!r}')
+            return
+        if new in self._gesture_labels_order:
+            self._gesture_status.config(text=f'Label already exists: {new!r}')
+            return
+
+        count = 0
+        self._gesture_samples = [
+            (new if lbl == old else lbl, vec)
+            for lbl, vec in self._gesture_samples
+        ]
+        for i, lbl in enumerate(self._gesture_labels_order):
+            if lbl == old:
+                self._gesture_labels_order[i] = new
+                break
+        count = sum(1 for lbl, _ in self._gesture_samples if lbl == new)
+
+        self._gesture_rename_old_var.set('')
+        self._gesture_rename_new_var.set('')
+        self._gesture_update_summary()
+        self._gesture_notify_samples_changed()
+        self._gesture_status.config(text=f'Renamed {count} samples: {old!r} → {new!r}')
 
     # ------------------------------------------------------------------
     # Summary
