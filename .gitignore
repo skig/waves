@@ -208,3 +208,7 @@ __marimo__/
 
 # program logs
 log/
+
+# ml folders
+models/
+datasets/

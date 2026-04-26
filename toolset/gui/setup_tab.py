@@ -59,6 +59,13 @@ class SetupTabMixin:
 
         num_status_rows = len(_SETUP_FIELDS)
 
+        ttk.Label(container, text='CS subevent period:', font=('TkDefaultFont', 11)).grid(
+            row=num_status_rows, column=0, sticky=tk.W, pady=(8, 4))
+        self._subevent_period_label = ttk.Label(container, text='—', font=('TkDefaultFont', 11))
+        self._subevent_period_label.grid(row=num_status_rows, column=1, sticky=tk.W, pady=(8, 4))
+
+        num_status_rows += 1
+
         ttk.Label(container, text='CS capabilities (reflector):', font=('TkDefaultFont', 11)).grid(
             row=num_status_rows, column=0, columnspan=2, sticky=tk.W, pady=(16, 4))
 
@@ -112,6 +119,12 @@ class SetupTabMixin:
                 indicator.delete('dot')
                 indicator.create_oval(2, 2, 14, 14, fill='#2e7d32', outline='', tags='dot')
         self.root.after(0, _set)
+
+    def update_procedure_params(self, connection_interval_ms: int, procedure_interval: int):
+        """Update the subevent period label from ACL and procedure intervals. Thread-safe."""
+        period_ms = connection_interval_ms * procedure_interval
+        text = f'{period_ms} ms  ({connection_interval_ms} ms × {procedure_interval})'
+        self.root.after(0, lambda: self._subevent_period_label.config(text=text))
 
     def update_capabilities_text(self, text: str):
         """Parse capabilities text and render with active/greyed segments. Thread-safe."""

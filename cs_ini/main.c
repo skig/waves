@@ -51,6 +51,7 @@ static void subevent_result_cb(struct bt_conn *conn, struct bt_conn_le_cs_subeve
 {
 	LOG_INF("CS Subevent result received:");
 	LOG_INF(" - Procedure counter: %u", result->header.procedure_counter);
+	LOG_INF(" - ACL conn counter: %u", result->header.start_acl_conn_event);
 	LOG_INF(" - Procedure done status: %u", result->header.procedure_done_status);
 	LOG_INF(" - Subevent done status: %u", result->header.subevent_done_status);
 	LOG_INF(" - Procedure abort reason: %u", result->header.procedure_abort_reason);
@@ -263,7 +264,8 @@ static int scan_init(void)
 
 	struct bt_scan_init_param param = {
 		.scan_param = NULL,
-		.conn_param = BT_LE_CONN_PARAM(0x10, 0x10, 0, BT_GAP_MS_TO_CONN_TIMEOUT(4000)),
+		/* 0x14 is 25 ms connection interval */
+		.conn_param = BT_LE_CONN_PARAM(0x14, 0x14, 0, BT_GAP_MS_TO_CONN_TIMEOUT(4000)),
 		.connect_if_match = 1};
 
 	bt_scan_init(&param);
@@ -394,8 +396,8 @@ int main(void)
 	const struct bt_le_cs_set_procedure_parameters_param procedure_params = {
 		.config_id = CS_CONFIG_ID,
 		.max_procedure_len = 1000,
-		.min_procedure_interval = 10,
-		.max_procedure_interval = 10,
+		.min_procedure_interval = 2,
+		.max_procedure_interval = 2,
 		.max_procedure_count = 0,
 		.min_subevent_len = 16000,
 		.max_subevent_len = 16000,

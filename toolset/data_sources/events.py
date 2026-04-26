@@ -23,3 +23,10 @@ class CapabilitiesEvent(CSEvent):
 class SubeventResultEvent(CSEvent):
     """A parsed CS subevent result."""
     subevent: SubeventResults
+
+
+@dataclass
+class ProcedureParamsEvent(CSEvent):
+    """Connection interval and procedure interval parsed from initiator UART output."""
+    connection_interval_ms: int
+    procedure_interval: int
