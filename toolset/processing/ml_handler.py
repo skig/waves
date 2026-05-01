@@ -1,11 +1,11 @@
-"""Loader for user-supplied gesture handler scripts.
+"""Loader for user-supplied ML handler scripts.
 
 A handler script may define any combination of these module-level functions:
 
     def on_recognition_start(classes: list[str]) -> None:
         \"\"\"Called once when recognition begins. 'classes' lists all trained labels.\"\"\"
 
-    def on_gesture(label: str, confidence: float, probabilities: dict[str, float]) -> None:
+    def on_prediction(label: str, confidence: float, probabilities: dict[str, float]) -> None:
         \"\"\"Called on every prediction cycle.
         'label'         – best predicted class
         'confidence'    – probability of the best class (0.0–1.0)
@@ -25,13 +25,13 @@ import traceback
 from typing import Optional
 
 
-class GestureHandler:
+class MLHandler:
     """Wraps a user script and calls its optional hook functions safely."""
 
     def __init__(self, script_path: str):
         spec = importlib.util.spec_from_file_location('_ml_handler_script', script_path)
         if spec is None or spec.loader is None:
-            raise ImportError(f'Cannot load gesture handler script: {script_path}')
+            raise ImportError(f'Cannot load ML handler script: {script_path}')
         module = importlib.util.module_from_spec(spec)
         sys.modules['_ml_handler_script'] = module
         spec.loader.exec_module(module)
@@ -48,14 +48,14 @@ class GestureHandler:
             print(f'[ml_handler] error in on_recognition_start:')
             traceback.print_exc()
 
-    def on_gesture(self, label: str, confidence: float, probabilities: dict) -> None:
-        fn = getattr(self._mod, 'on_gesture', None)
+    def on_prediction(self, label: str, confidence: float, probabilities: dict) -> None:
+        fn = getattr(self._mod, 'on_prediction', None)
         if fn is None:
             return
         try:
             fn(label, confidence, probabilities)
         except Exception:
-            print(f'[ml_handler] error in on_gesture:')
+            print(f'[ml_handler] error in on_prediction:')
             traceback.print_exc()
 
     def on_recognition_stop(self) -> None:
@@ -69,8 +69,8 @@ class GestureHandler:
             traceback.print_exc()
 
 
-def load_ml_handler(script_path: Optional[str]) -> Optional[GestureHandler]:
-    """Load and return a GestureHandler, or None if no path is given."""
+def load_ml_handler(script_path: Optional[str]) -> Optional[MLHandler]:
+    """Load and return an MLHandler, or None if no path is given."""
     if script_path is None:
         return None
-    return GestureHandler(script_path)
+    return MLHandler(script_path)

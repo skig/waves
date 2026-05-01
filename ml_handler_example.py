@@ -1,4 +1,4 @@
-"""Example gesture handler — live probability bar chart in a separate window.
+"""Example ML handler — live probability bar chart in a separate window.
 
 Usage:
     python3 run.py -i <ini> -r <ref> --uart --ml --ml-handler ml_handler_example.py
@@ -20,7 +20,7 @@ def on_recognition_start(classes: list) -> None:
     n = len(classes)
 
     _fig, _ax = plt.subplots(figsize=(max(4, n * 0.9), 4))
-    _fig.canvas.manager.set_window_title('Gesture probabilities')
+    _fig.canvas.manager.set_window_title('ML probabilities')
 
     x = np.arange(n)
     colors = plt.cm.tab10(np.linspace(0, 1, n))
@@ -30,7 +30,7 @@ def on_recognition_start(classes: list) -> None:
     _ax.set_xticklabels(classes, rotation=30, ha='right')
     _ax.set_ylim(0, 1)
     _ax.set_ylabel('Probability')
-    _ax.set_title('Live gesture probabilities')
+    _ax.set_title('Live ML probabilities')
     _ax.axhline(y=0.5, color='gray', linestyle='--', alpha=0.5, linewidth=1)
     _ax.grid(True, axis='y', alpha=0.4)
 
@@ -39,7 +39,7 @@ def on_recognition_start(classes: list) -> None:
     plt.show()
 
 
-def on_gesture(label: str, confidence: float, probabilities: dict) -> None:
+def on_prediction(label: str, confidence: float, probabilities: dict) -> None:
     if _bars is None or _classes is None:
         return
 

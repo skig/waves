@@ -1,4 +1,4 @@
-"""Pygame gesture race game — dodge incoming cars with your arm.
+"""Pygame ML race game — dodge incoming cars with your arm.
 
 Labels (case-insensitive):
   left   → player car moves left
@@ -43,7 +43,7 @@ _OBS_SPEED_INIT  = 2    # px / frame scroll at start
 _OBS_SPEED_MAX   = 8
 _SPAWN_MAX       = 150  # frames between spawns at start
 _SPAWN_MIN       = 60   # minimum spawn interval
-# Minimum number of consecutive identical gesture readings before it is accepted.
+# Minimum number of consecutive identical ML prediction readings before it is accepted.
 # Raise to filter out more flicker, lower for faster response.
 _DEBOUNCE_COUNT  = 3
 
@@ -69,10 +69,10 @@ def on_recognition_start(classes: list) -> None:
     _thread.start()
 
 
-def on_gesture(label: str, confidence: float, probabilities: dict) -> None:
+def on_prediction(label: str, confidence: float, probabilities: dict) -> None:
     global _direction, _pending_label, _pending_count
     lbl = label.lower().strip()
-    print(f"Gesture: {lbl} (confidence: {confidence:.2f})")
+    print(f"Prediction: {lbl} (confidence: {confidence:.2f})")
     d = 'left' if lbl == 'left' else 'right' if lbl == 'right' else 'none'
     with _lock:
         if d == 'none':
@@ -125,7 +125,7 @@ def _game_loop() -> None:
 
     pygame.init()
     screen = pygame.display.set_mode((_W, _H))
-    pygame.display.set_caption('Gesture Race')
+    pygame.display.set_caption('ML Race')
     clock      = pygame.time.Clock()
     font_big   = pygame.font.SysFont(None, 56)
     font_med   = pygame.font.SysFont(None, 34)
@@ -156,7 +156,7 @@ def _game_loop() -> None:
             obs_speed    = min(_OBS_SPEED_MAX, _OBS_SPEED_INIT + f // (_FPS * 15))
             spawn_frames = max(_SPAWN_MIN, _SPAWN_MAX - f // (_FPS * 8))
 
-            # lateral player movement from gesture
+            # lateral player movement from ml prediction
             with _lock:
                 d = _direction
             p = state['player']
@@ -226,7 +226,7 @@ def _game_loop() -> None:
         screen.blit(font_med.render(f"Score: {state['score']}", True, _C_TEXT), (10, 10))
         with _lock:
             lbl_txt = _direction
-        screen.blit(font_small.render(f'Gesture: {lbl_txt}', True, _C_TEXT), (10, 50))
+        screen.blit(font_small.render(f'Prediction: {lbl_txt}', True, _C_TEXT), (10, 50))
 
         # game-over overlay
         if state['dead']:
