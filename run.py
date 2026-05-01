@@ -77,6 +77,8 @@ def main():
     # Validate arguments
     if args.log_uart and not args.uart:
         parser.error("--log-uart can only be used with --uart")
+    if args.ml and not args.uart:
+        parser.error("--ml requires --uart")
     if args.ml_handler and not args.ml:
         parser.error("--ml-handler requires --ml")
 
