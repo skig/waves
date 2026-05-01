@@ -840,7 +840,7 @@ class GestureTabMixin:
         self._gesture_pre_recognition_view = self._gesture_plot_view
         self._gesture_plot_view = 'proba'
         self._gesture_init_proba_chart()
-        handler = getattr(self, '_gesture_handler', None)
+        handler = getattr(self, '_ml_handler', None)
         if handler is not None:
             handler.on_recognition_start(list(self._gesture_classes))
 
@@ -849,7 +849,7 @@ class GestureTabMixin:
         self._gesture_recognize_btn.config(text='Start recognition')
         self._gesture_pred_label.config(text='', bg=_Theme.AltBackground, fg=_Theme.Foreground)
         self._gesture_proba_bars = None
-        handler = getattr(self, '_gesture_handler', None)
+        handler = getattr(self, '_ml_handler', None)
         if handler is not None:
             handler.on_recognition_stop()
         view = getattr(self, '_gesture_pre_recognition_view', 'pca')
@@ -904,7 +904,7 @@ class GestureTabMixin:
         self._gesture_pred_label.config(text=text, bg=bg, fg=fg)
 
         # Notify external handler
-        handler = getattr(self, '_gesture_handler', None)
+        handler = getattr(self, '_ml_handler', None)
         if handler is not None:
             proba_dict = dict(zip(self._gesture_classes, proba.tolist()))
             handler.on_gesture(label, confidence, proba_dict)

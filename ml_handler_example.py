@@ -1,7 +1,7 @@
 """Example gesture handler — live probability bar chart in a separate window.
 
 Usage:
-    python3 run.py -i <ini> -r <ref> --uart --ml --gesture-handler gesture_handler_example.py
+    python3 run.py -i <ini> -r <ref> --uart --ml --ml-handler ml_handler_example.py
 """
 
 import matplotlib.pyplot as plt

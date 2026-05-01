@@ -51,10 +51,10 @@ def main():
     )
 
     parser.add_argument(
-        '--gesture-handler',
+        '--ml-handler',
         metavar='SCRIPT',
         default=None,
-        help='Path to a Python script invoked during live gesture recognition (requires --ml)'
+        help='Path to a Python script invoked during live ML recognition (requires --ml)'
     )
 
     theme_group = parser.add_mutually_exclusive_group()
@@ -77,8 +77,8 @@ def main():
     # Validate arguments
     if args.log_uart and not args.uart:
         parser.error("--log-uart can only be used with --uart")
-    if args.gesture_handler and not args.ml:
-        parser.error("--gesture-handler requires --ml")
+    if args.ml_handler and not args.ml:
+        parser.error("--ml-handler requires --ml")
 
     # Create separate queues for each stream
     initiator_queue = Queue(maxsize=100)
@@ -135,7 +135,7 @@ def main():
         initiator_source.close()
         reflector_source.close()
 
-    viewer = launch_viewer(dark_mode=args.dark_mode, ml=args.ml, gesture_handler=args.gesture_handler, on_close=shutdown)
+    viewer = launch_viewer(dark_mode=args.dark_mode, ml=args.ml, ml_handler=args.ml_handler, on_close=shutdown)
 
     def _sigint_handler(sig, frame):
         shutdown()

@@ -9,7 +9,7 @@ from toolset.gui.plots_tab import PlotsTabMixin
 from toolset.gui.ifft_tab import IFftTabMixin
 from toolset.gui.music_tab import MusicTabMixin
 from toolset.gui.gesture_tab import GestureTabMixin
-from toolset.processing.gesture_handler import load_gesture_handler
+from toolset.processing.ml_handler import load_ml_handler
 from matplotlib.collections import PolyCollection
 
 # Skip a render when this many subevents have accumulated since the last rendered
@@ -21,7 +21,7 @@ _LAG_SKIP_COUNT = 3
 class CSViewer(SetupTabMixin, StepsTabMixin, PlotsTabMixin, IFftTabMixin, MusicTabMixin, GestureTabMixin):
     """GUI for viewing Channel Sounding data"""
 
-    def __init__(self, initiator_subevents: List = None, reflector_subevents: List = None, dark_mode: bool = True, ml: bool = False, gesture_handler: str = None, on_close: Callable = None):
+    def __init__(self, initiator_subevents: List = None, reflector_subevents: List = None, dark_mode: bool = True, ml: bool = False, ml_handler: str = None, on_close: Callable = None):
         self.initiator_subevents = initiator_subevents or []
         self.reflector_subevents = reflector_subevents or []
 
@@ -75,7 +75,7 @@ class CSViewer(SetupTabMixin, StepsTabMixin, PlotsTabMixin, IFftTabMixin, MusicT
         all_counters = sorted(set(self.initiator_map.keys()) | set(self.reflector_map.keys()))
 
         self._ml_enabled = ml
-        self._gesture_handler = load_gesture_handler(gesture_handler)
+        self._ml_handler = load_ml_handler(ml_handler)
         self._on_close_callback = on_close
         _Theme.set(DARK_THEME if dark_mode else LIGHT_THEME)
 
@@ -339,7 +339,7 @@ class CSViewer(SetupTabMixin, StepsTabMixin, PlotsTabMixin, IFftTabMixin, MusicT
         self.root.mainloop()
 
 
-def launch_viewer(initiator_subevents: List = None, reflector_subevents: List = None, dark_mode: bool = True, ml: bool = False, gesture_handler: str = None, on_close: Callable = None):
+def launch_viewer(initiator_subevents: List = None, reflector_subevents: List = None, dark_mode: bool = True, ml: bool = False, ml_handler: str = None, on_close: Callable = None):
     """Launch the CS Viewer GUI"""
-    viewer = CSViewer(initiator_subevents, reflector_subevents, dark_mode=dark_mode, ml=ml, gesture_handler=gesture_handler, on_close=on_close)
+    viewer = CSViewer(initiator_subevents, reflector_subevents, dark_mode=dark_mode, ml=ml, ml_handler=ml_handler, on_close=on_close)
     return viewer

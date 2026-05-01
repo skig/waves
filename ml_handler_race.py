@@ -6,7 +6,7 @@ Labels (case-insensitive):
   empty / center / anything else → no lateral movement
 
 Usage:
-    python3 run.py -i <ini> -r <ref> --uart --ml --gesture-handler gesture_handler_race.py
+    python3 run.py -i <ini> -r <ref> --uart --ml --ml-handler ml_handler_race.py
 """
 
 import threading
