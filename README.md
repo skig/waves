@@ -34,7 +34,7 @@ Install Python dependencies first:
 - `pip3 install -r requirements.txt`
 
 Using physical initiator and reflector boards:
-- install NCS 3.2.2
+- install NCS 3.2.2 (can skip if using prebuilt .hex for standard nrf54l15 devkits)
 - build cs_ini and cs_ref samples (can skip if using prebuilt .hex for standard nrf54l15 devkits)
 - flash them to two nrf54l15dk boards
 - `python3 run.py -i /dev/ttyACM1 -r /dev/ttyACM3 --uart --log-uart`, adjust COM-port names if needed
@@ -88,6 +88,36 @@ Due to limited amount of frequency samples, the IFFT estimation has limited reso
 <img src="imgs/cs_music.png" width="400"/>
 
 To improve resolution of the distance estimation, the tool implements MUSIC algorithm. It also allows to estimate impluse response of the RF channel and estimate the distance more accurately but within assumtions of the algorithm (such as single path channel, given noise nature etc)
+
+## Tutorial on Machine Learning feature
+
+The tool also contains basic Proof-of-concept machine learning feature allowing to train a machine learning model based on a data produced by Channel sounding procedure. This feature can be used for a simple gesture recognition, objects detection etc.
+
+###  How to build and run
+
+Install additional Python requirements:
+- `pip3 install -r requirements-ml.txt`
+
+To build and run the application:
+- flash cs_ini and cs_ref firmwares to two boards
+- `python3 run.py -i /dev/ttyACM1 -r /dev/ttyACM3 --uart --log-uart --ml`, adjust COM-port names if needed
+
+Example of usage ML feature to detect object placed between two boards:
+1. Place both boards in front of each other at the fixed positions
+2. Open the application `python3 run.py -i /dev/ttyACM1 -r /dev/ttyACM3 --uart --log-uart --ml --ml-handler ml_handler_example.py`
+3. Open "ML" tab
+4. Collect data for the "Empty" label with 100 samples by pressing "Record samples"
+5. Collect data for the "Object" label when there is an object between two boards
+6. Press "Train" button to train SVM model based on the collected data
+7. Press "Start recognition" to run the model. When object is located between boards, the model should correctly recognize the object; when there is no object, the model should indicate "Empty"
+
+<img src="imgs/ml_labels.png" width="400"/>
+<img src="imgs/ml_empty.png" width="400"/>
+<img src="imgs/ml_object.png" width="400"/>
+
+Arguments available when using ML feature:
+- `--ml` enable ML feature. Only available when `--uart` is used
+- `--ml-handler` is an optional feature to use additional handler processing ML data. See `ml_handler_example.py` source for the details
 
 ## Current status
 
