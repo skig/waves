@@ -7,7 +7,7 @@ averaging window) so the image appears immediately.
 Usage:
     python3 test_ml_handler_demo.py [label]
 
-    label — one of: box, apple, orange, zucchini  (case-insensitive)
+    label — one of: box, apple, left, right  (case-insensitive)
             if omitted, the script prompts interactively.
 """
 
@@ -21,7 +21,7 @@ spec   = importlib.util.spec_from_file_location('ml_handler_demo', _script)
 mod    = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(mod)
 
-CLASSES = ['box', 'apple', 'orange', 'zucchini']
+CLASSES = ['box', 'apple', 'left', 'right']
 
 
 def _send(label: str) -> None:

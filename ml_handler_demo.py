@@ -1,6 +1,6 @@
 """Demo ML handler — displays a picture for the recognized object.
 
-Categories: box, apple, orange, zucchini (case-insensitive).
+Categories: box, apple, left, right (case-insensitive).
 Probabilities are averaged over the last 4 predictions before the
 displayed image is updated.
 
@@ -22,8 +22,8 @@ _IMGS_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'imgs')
 _IMAGE_MAP = {
     'box':      os.path.join(_IMGS_DIR, 'demo_empty_box.svg'),
     'apple':    os.path.join(_IMGS_DIR, 'demo_apple.svg'),
-    'orange':   os.path.join(_IMGS_DIR, 'demo_orange.svg'),
-    'zucchini': os.path.join(_IMGS_DIR, 'demo_zucchini.svg'),
+    'left':   os.path.join(_IMGS_DIR, 'demo_left.svg'),
+    'right':   os.path.join(_IMGS_DIR, 'demo_right.svg'),
 }
 
 _HISTORY_SIZE = 4
